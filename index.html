@@ -3,180 +3,250 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neal.fun Clone - Tiêu tiền</title>
+    <title>Neal.fun Clone - Pro Version</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap" rel="stylesheet">
     <style>
-        /* PHẦN GIAO DIỆN (CSS) */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --accent-color: #2ecc71;
+        }
+
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background-color: #f1f2f6;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
             margin: 0;
-            padding-bottom: 50px;
+            transition: 0.3s;
         }
 
-        .header {
-            background: #ffffff;
-            padding: 30px 20px;
-            text-align: center;
-            position: sticky;
-            top: 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            z-index: 100;
-        }
-
-        h1 { margin: 0 0 10px 0; font-size: 24px; }
-
-        #balance {
-            font-size: 2.5rem;
-            font-weight: bold;
-            color: #2ecc71;
-            background: #1e272e;
-            display: inline-block;
-            padding: 10px 30px;
-            border-radius: 10px;
-            min-width: 300px;
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            padding: 20px;
-            max-width: 1100px;
-            margin: 20px auto;
-        }
-
-        .card {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            text-align: center;
-            transition: transform 0.2s;
-        }
-
-        .card:hover { transform: translateY(-5px); }
-
-        .emoji { font-size: 60px; margin-bottom: 10px; }
-
-        .card h3 { margin: 10px 0; font-size: 22px; }
-
-        .price { color: #2ecc71; font-weight: bold; font-size: 18px; margin-bottom: 20px; }
-
-        .controls {
+        /* Navbar phong cách Neal.fun */
+        .navbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 10px;
+            padding: 20px 50px;
+            border-bottom: 1px solid #eee;
         }
 
-        button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
+        .logo { font-weight: 800; font-size: 24px; cursor: pointer; }
+
+        .nav-right { display: flex; gap: 15px; align-items: center; }
+
+        select { padding: 5px; border-radius: 5px; border: 1px solid #ccc; }
+
+        /* Auth Section */
+        .auth-container {
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 30px;
+            border: 2px solid #000;
+            text-align: center;
+        }
+
+        input {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 2px solid #000;
             font-size: 16px;
         }
 
-        .buy { background-color: #2ecc71; color: white; }
-        .buy:hover { background-color: #27ae60; }
-
-        .sell { background-color: #f1f2f6; color: #333; }
-        .sell.active { background-color: #e74c3c; color: white; }
-
-        button:disabled {
-            background-color: #ecf0f1;
-            color: #bdc3c7;
-            cursor: not-allowed;
+        /* Game Section */
+        .header-money {
+            background: var(--accent-color);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            font-size: 40px;
+            font-weight: 700;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
-        .count {
-            width: 50px;
-            font-weight: bold;
-            font-size: 18px;
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: auto;
         }
+
+        .item-card {
+            border: 1px solid #eee;
+            padding: 20px;
+            text-align: center;
+            transition: 0.2s;
+        }
+
+        .item-card:hover { background: #f9f9f9; }
+
+        .item-img { font-size: 60px; }
+
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 15px; }
+
+        button {
+            padding: 10px 25px;
+            font-weight: 700;
+            border: 2px solid #000;
+            cursor: pointer;
+            background: white;
+        }
+
+        button.buy { background: var(--accent-color); color: white; border: none; }
+        button.sell { background: #f1f1f1; }
+
+        /* Bảng xếp hạng (Leaderboard) */
+        .leaderboard {
+            max-width: 600px;
+            margin: 50px auto;
+            border: 2px solid #000;
+            padding: 20px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>Tiêu hết 1,000,000,000$</h1>
-        <div id="balance">$ 1,000,000,000</div>
+    <div class="navbar">
+        <div class="logo" onclick="showPage('game-page')">NEAL.FUN CLONE</div>
+        <div class="nav-right">
+            <select id="lang-select" onchange="changeLang()">
+                <option value="vi">Tiếng Việt</option>
+                <option value="en">English</option>
+            </select>
+            <button onclick="showPage('auth-page')" id="user-btn">Đăng nhập</button>
+            <button onclick="showPage('leaderboard-page')">Xếp hạng</button>
+        </div>
     </div>
 
-    <div class="container" id="item-grid">
+    <div id="auth-page" class="auth-container hidden">
+        <h2 id="auth-title">Đăng ký thành viên</h2>
+        <input type="text" id="username" placeholder="Tên người dùng">
+        <input type="password" id="password" placeholder="Mật khẩu">
+        <button onclick="handleAuth()" class="buy">Xác nhận</button>
+        <p onclick="toggleAuth()" style="cursor:pointer; text-decoration:underline;">Chuyển sang Đăng nhập</p>
+    </div>
+
+    <div id="game-page">
+        <div class="header-money" id="balance-display">$1,000,000,000</div>
+        <div class="grid" id="game-grid"></div>
+    </div>
+
+    <div id="leaderboard-page" class="leaderboard hidden">
+        <h2 id="lb-title">Người tiêu tiền nhiều nhất</h2>
+        <div id="lb-list">
+            <div class="leaderboard-item"><span>1. Nguyễn Văn A</span> <span>$999,000,000</span></div>
+            <div class="leaderboard-item"><span>2. Trần Thị B</span> <span>$850,000,000</span></div>
         </div>
+    </div>
 
     <script>
-        /* PHẦN LOGIC (JAVASCRIPT) */
+        // CẤU HÌNH NGÔN NGỮ
+        const i18n = {
+            vi: {
+                authTitle: "Đăng ký thành viên",
+                login: "Đăng nhập",
+                lbTitle: "Bảng Xếp Hạng",
+                buy: "Mua", sell: "Bán",
+                money: "Số dư: "
+            },
+            en: {
+                authTitle: "Sign Up",
+                login: "Login",
+                lbTitle: "Leaderboard",
+                buy: "Buy", sell: "Sell",
+                money: "Balance: "
+            }
+        };
+
+        let currentLang = 'vi';
+        let balance = 1000000000;
+        let currentUser = null;
+
         const items = [
-            { name: "Ly Cà Phê", price: 5, img: "☕" },
-            { name: "Vé Xem Phim", price: 15, img: "🎬" },
-            { name: "Máy Chơi Game", price: 500, img: "🎮" },
-            { name: "iPhone 15 Pro", price: 1000, img: "📱" },
-            { name: "Mô Tô Phân Khối Lớn", price: 20000, img: "🏍️" },
-            { name: "Siêu Xe Ferrari", price: 250000, img: "🏎️" },
-            { name: "Du Thuyền", price: 5000000, img: "🚤" },
-            { name: "Biệt Thự Biển", price: 15000000, img: "🏠" },
-            { name: "Tòa Nhà Chọc Trời", price: 800000000, img: "🏢" }
+            { name: {vi: "Bánh Mì", en: "Bread"}, price: 2, img: "🥖" },
+            { name: {vi: "iPhone 15", en: "iPhone 15"}, price: 1000, img: "📱" },
+            { name: {vi: "Siêu xe", en: "Supercar"}, price: 200000, img: "🏎️" },
+            { name: {vi: "Máy bay", en: "Private Jet"}, price: 50000000, img: "🛩️" }
         ];
 
-        let balance = 1000000000;
-        let inventory = {};
+        // CHUYỂN TRANG
+        function showPage(pageId) {
+            document.getElementById('auth-page').classList.add('hidden');
+            document.getElementById('game-page').classList.add('hidden');
+            document.getElementById('leaderboard-page').classList.add('hidden');
+            document.getElementById(pageId).classList.remove('hidden');
+        }
 
-        // Khởi tạo số lượng bằng 0 cho tất cả món đồ
-        items.forEach(item => inventory[item.name] = 0);
+        // THAY ĐỔI NGÔN NGỮ
+        function changeLang() {
+            currentLang = document.getElementById('lang-select').value;
+            document.getElementById('auth-title').innerText = i18n[currentLang].authTitle;
+            document.getElementById('lb-title').innerText = i18n[currentLang].lbTitle;
+            renderGame();
+        }
 
-        function updateUI() {
-            // Cập nhật số tiền hiển thị
-            document.getElementById('balance').innerText = `$ ${balance.toLocaleString()}`;
-            
-            const grid = document.getElementById('item-grid');
+        // GIẢ LẬP ĐĂNG NHẬP (Lưu vào LocalStorage)
+        function handleAuth() {
+            const user = document.getElementById('username').value;
+            if(user) {
+                currentUser = user;
+                document.getElementById('user-btn').innerText = user;
+                alert("Chào mừng " + user + "!");
+                showPage('game-page');
+            }
+        }
+
+        // RENDER GAME
+        function renderGame() {
+            const grid = document.getElementById('game-grid');
             grid.innerHTML = '';
+            document.getElementById('balance-display').innerText = `$${balance.toLocaleString()}`;
 
             items.forEach(item => {
-                const count = inventory[item.name];
                 const card = document.createElement('div');
-                card.className = 'card';
-                
+                card.className = 'item-card';
                 card.innerHTML = `
-                    <div class="emoji">${item.img}</div>
-                    <h3>${item.name}</h3>
-                    <div class="price">$${item.price.toLocaleString()}</div>
-                    <div class="controls">
-                        <button class="sell ${count > 0 ? 'active' : ''}" 
-                                onclick="sellItem('${item.name}', ${item.price})" 
-                                ${count === 0 ? 'disabled' : ''}>Bán</button>
-                        
-                        <span class="count">${count}</span>
-                        
-                        <button class="buy" 
-                                onclick="buyItem('${item.name}', ${item.price})" 
-                                ${balance < item.price ? 'disabled' : ''}>Mua</button>
+                    <div class="item-img">${item.img}</div>
+                    <h3>${item.name[currentLang]}</h3>
+                    <p>$${item.price.toLocaleString()}</p>
+                    <div class="btn-group">
+                        <button class="sell" onclick="buy(-${item.price})">${i18n[currentLang].sell}</button>
+                        <button class="buy" onclick="buy(${item.price})">${i18n[currentLang].buy}</button>
                     </div>
                 `;
                 grid.appendChild(card);
             });
         }
 
-        window.buyItem = (name, price) => {
-            if (balance >= price) {
-                balance -= price;
-                inventory[name]++;
-                updateUI();
+        function buy(amount) {
+            if (balance >= amount) {
+                balance -= amount;
+                renderGame();
+                // Lưu điểm vào bảng xếp hạng giả lập
+                saveScore();
             }
-        };
+        }
 
-        window.sellItem = (name, price) => {
-            if (inventory[name] > 0) {
-                balance += price;
-                inventory[name]--;
-                updateUI();
+        function saveScore() {
+            if(currentUser) {
+                console.log(`Lưu điểm cho ${currentUser}: ${1000000000 - balance}`);
             }
-        };
+        }
 
-        // Chạy lần đầu tiên để hiện danh sách
-        updateUI();
+        // Khởi chạy
+        renderGame();
     </script>
 </body>
 </html>
