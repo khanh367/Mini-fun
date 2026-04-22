@@ -226,107 +226,157 @@ function startDodge(){
 }
 dodgeCanvas.addEventListener("touchmove",e=>px=e.touches[0].clientX-150);
 
-// ===== MARIO (FIXED) =====
-let mCtx=marioCanvas.getContext("2d");
-let mario, mLoop;
+// ===== MARIO FINAL FIX =====
+let mCtx = marioCanvas.getContext("2d");
+
+let mario, mLoopRunning = false;
 
 function startMario(){
- mario={x:120,y:300,vy:0,onGround:true};
- cancelAnimationFrame(mLoop);
+  mario = {
+    x: 120,
+    y: 300,
+    vy: 0,
+    onGround: true
+  };
 
- function loop(){
+  mLoopRunning = true;
+  marioLoop();
+}
+
+function marioLoop(){
+  if(!mLoopRunning) return;
+
   mCtx.clearRect(0,0,300,400);
 
-  mario.vy+=0.5;
-  mario.y+=mario.vy;
+  // gravity
+  mario.vy += 0.5;
+  mario.y += mario.vy;
 
-  if(mario.y>=300){
-   mario.y=300;
-   mario.vy=0;
-   mario.onGround=true;
+  // ground
+  if(mario.y >= 300){
+    mario.y = 300;
+    mario.vy = 0;
+    mario.onGround = true;
   }
 
-  if(mario.x<0)mario.x=0;
-  if(mario.x>270)mario.x=270;
+  // giới hạn màn hình
+  if(mario.x < 0) mario.x = 0;
+  if(mario.x > 270) mario.x = 270;
 
-  mCtx.fillRect(mario.x,mario.y,30,30);
+  // draw
+  mCtx.fillRect(mario.x, mario.y, 30, 30);
 
-  mLoop=requestAnimationFrame(loop);
- }
- loop();
+  requestAnimationFrame(marioLoop);
 }
 
-function mLeft(){mario.x-=20;}
-function mRight(){mario.x+=20;}
+// control
+function mLeft(){ mario.x -= 15; }
+function mRight(){ mario.x += 15; }
 function mJump(){
- if(mario.onGround){
-  mario.vy=-10;
-  mario.onGround=false;
- }
+  if(mario.onGround){
+    mario.vy = -11;
+    mario.onGround = false;
+  }
 }
 
-// ===== SHOOTER (FIXED) =====
-let sCtx=shootCanvas.getContext("2d");
-let gun, bullets, enemies, sLoop, scoreS;
+// stop khi back
+function stopMario(){
+  mLoopRunning = false;
+}
+
+// ===== SHOOTER FINAL FIX =====
+let sCtx = shootCanvas.getContext("2d");
+
+let gun, bullets, enemies, shootRunning = false, scoreS;
 
 function startShoot(){
- gun={x:130};
- bullets=[];
- enemies=[];
- scoreS=0;
+  gun = { x:130 };
+  bullets = [];
+  enemies = [];
+  scoreS = 0;
 
- cancelAnimationFrame(sLoop);
-
- function loop(){
-  sCtx.clearRect(0,0,300,400);
-
-  if(gun.x<0)gun.x=0;
-  if(gun.x>260)gun.x=260;
-
-  sCtx.fillRect(gun.x,370,40,20);
-
-  bullets.forEach((b,i)=>{
-   b.y-=6;
-   if(b.y<0) bullets.splice(i,1);
-   else sCtx.fillRect(b.x,b.y,5,10);
-  });
-
-  if(Math.random()<0.03){
-   enemies.push({x:Math.random()*260,y:0});
-  }
-
-  enemies.forEach((e,ei)=>{
-   e.y+=3;
-
-   if(e.y>400){
-    enemies.splice(ei,1);
-   }
-
-   sCtx.fillRect(e.x,e.y,20,20);
-
-   bullets.forEach((b,bi)=>{
-    if(
-      b.x<e.x+20 &&
-      b.x+5>e.x &&
-      b.y<e.y+20 &&
-      b.y+10>e.y
-    ){
-      bullets.splice(bi,1);
-      enemies.splice(ei,1);
-      scoreS+=10;
-      shootScore.innerText="Score: "+scoreS;
-    }
-   });
-  });
-
-  sLoop=requestAnimationFrame(loop);
- }
- loop();
+  shootRunning = true;
+  shootLoop();
 }
 
-function gLeft(){gun.x-=20;}
-function gRight(){gun.x+=20;}
-function shoot(){bullets.push({x:gun.x+18,y:350});}
+function shootLoop(){
+  if(!shootRunning) return;
+
+  sCtx.clearRect(0,0,300,400);
+
+  // giới hạn súng
+  if(gun.x < 0) gun.x = 0;
+  if(gun.x > 260) gun.x = 260;
+
+  // draw gun
+  sCtx.fillRect(gun.x,370,40,20);
+
+  // bullets
+  for(let i=bullets.length-1;i>=0;i--){
+    let b = bullets[i];
+    b.y -= 6;
+
+    if(b.y < 0){
+      bullets.splice(i,1);
+      continue;
+    }
+
+    sCtx.fillRect(b.x,b.y,5,10);
+  }
+
+  // spawn enemy
+  if(Math.random() < 0.03){
+    enemies.push({x:Math.random()*260, y:0});
+  }
+
+  // enemies + collision
+  for(let i=enemies.length-1;i>=0;i--){
+    let e = enemies[i];
+    e.y += 3;
+
+    if(e.y > 400){
+      enemies.splice(i,1);
+      continue;
+    }
+
+    sCtx.fillRect(e.x,e.y,20,20);
+
+    for(let j=bullets.length-1;j>=0;j--){
+      let b = bullets[j];
+
+      if(
+        b.x < e.x+20 &&
+        b.x+5 > e.x &&
+        b.y < e.y+20 &&
+        b.y+10 > e.y
+      ){
+        bullets.splice(j,1);
+        enemies.splice(i,1);
+        scoreS += 10;
+        shootScore.innerText = "Score: " + scoreS;
+        break;
+      }
+    }
+  }
+
+  requestAnimationFrame(shootLoop);
+}
+
+// control
+function gLeft(){ gun.x -= 15; }
+function gRight(){ gun.x += 15; }
+function shoot(){
+  bullets.push({x:gun.x+18, y:350});
+}
+
+function back(){
+  // dừng game
+  if(typeof mLoopRunning !== "undefined") mLoopRunning = false;
+  if(typeof shootRunning !== "undefined") shootRunning = false;
+
+  document.querySelectorAll("div").forEach(x=>x.style.display="none");
+  menu.style.display="block";
+}
 
 // ===== LEADERBOARD =====
 function showBoard(){
