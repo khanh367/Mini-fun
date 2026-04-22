@@ -5,41 +5,21 @@
 <title>Mini Fun Pro</title>
 
 <style>
-body {
-  font-family: Arial;
-  text-align: center;
-  background: #f5f5f5;
+body{font-family:Arial;text-align:center;background:#f5f5f5;}
+button{padding:10px;margin:5px;border:none;border-radius:8px;background:black;color:white;}
+input{padding:10px;margin:5px;}
+.hidden{display:none;}
+canvas{background:#fff;border:1px solid #ccc;margin-top:10px;}
+
+.top1{
+ color:gold;
+ font-weight:bold;
+ font-size:20px;
+ animation:glow 1s infinite alternate;
 }
-
-button {
-  padding: 10px;
-  margin: 5px;
-  border: none;
-  border-radius: 8px;
-  background: black;
-  color: white;
-}
-
-input {
-  padding: 10px;
-  margin: 5px;
-}
-
-.hidden { display: none; }
-
-#runBtn { position: absolute; }
-
-/* 🥇 TOP 1 EFFECT */
-.top1 {
-  color: gold;
-  font-weight: bold;
-  font-size: 20px;
-  animation: glow 1s infinite alternate;
-}
-
-@keyframes glow {
-  from { text-shadow: 0 0 5px gold; }
-  to { text-shadow: 0 0 20px orange; }
+@keyframes glow{
+ from{ text-shadow:0 0 5px gold;}
+ to{ text-shadow:0 0 20px orange;}
 }
 </style>
 </head>
@@ -48,7 +28,6 @@ input {
 
 <h1>Mini Fun 😈</h1>
 
-<!-- LOGIN -->
 <div id="auth">
 <input id="user" placeholder="Username"><br>
 <input id="pass" type="password"><br>
@@ -56,204 +35,279 @@ input {
 <button onclick="register()">Register</button>
 </div>
 
-<!-- MENU -->
 <div id="menu" class="hidden">
 <h2 id="welcome"></h2>
 <h3 id="scoreText"></h3>
 
 <button onclick="openGame('guess')">🎯 Guess</button>
-<button onclick="openGame('click')">⚡ Speed</button>
+<button onclick="openGame('click')">⚡ Click</button>
+<button onclick="openGame('tap')">👆 Tap</button>
 <button onclick="openGame('run')">🏃 Catch</button>
 <button onclick="openGame('luck')">🧠 Luck</button>
+<button onclick="openGame('math')">➕ Math</button>
+<button onclick="openGame('dodge')">💣 Dodge</button>
+<button onclick="openGame('mario')">🕹 Mario</button>
+<button onclick="openGame('shoot')">🔫 Shooter</button>
 
 <button onclick="showBoard()">🏆 Leaderboard</button>
 <button onclick="logout()">Logout</button>
 </div>
 
-<!-- GUESS -->
+<!-- BASIC GAMES -->
 <div id="guess" class="hidden">
-<h2>Guess Number</h2>
 <input id="guessInput" type="number">
 <button onclick="checkGuess()">OK</button>
 <p id="guessResult"></p>
 <button onclick="back()">Back</button>
 </div>
 
-<!-- CLICK -->
 <div id="click" class="hidden">
-<h2>Click Fast (5s)</h2>
 <button onclick="startClick()">Start</button>
 <p id="clickCount"></p>
 <button onclick="back()">Back</button>
 </div>
 
-<!-- RUN -->
+<div id="tap" class="hidden">
+<button onclick="startTap()">Start</button>
+<p id="tapScore"></p>
+<button onclick="back()">Back</button>
+</div>
+
 <div id="run" class="hidden">
-<h2>Catch Button 😈</h2>
 <button id="runBtn">CLICK</button>
 <p id="runMsg"></p>
 <button onclick="back()">Back</button>
 </div>
 
-<!-- LUCK -->
 <div id="luck" class="hidden">
-<h2>Lucky Test</h2>
 <button onclick="testLuck()">Test</button>
 <p id="luckResult"></p>
 <button onclick="back()">Back</button>
 </div>
 
-<!-- BOARD -->
+<div id="math" class="hidden">
+<p id="mathQ"></p>
+<input id="mathInput">
+<button onclick="checkMath()">OK</button>
+<p id="mathResult"></p>
+<button onclick="back()">Back</button>
+</div>
+
+<!-- ADVANCED -->
+<div id="dodge" class="hidden">
+<canvas id="dodgeCanvas" width="300" height="400"></canvas>
+<p id="dodgeScore"></p>
+<button onclick="back()">Back</button>
+</div>
+
+<div id="mario" class="hidden">
+<canvas id="marioCanvas" width="300" height="400"></canvas>
+<button onclick="back()">Back</button>
+</div>
+
+<div id="shoot" class="hidden">
+<canvas id="shootCanvas" width="300" height="400"></canvas>
+<p id="shootScore"></p>
+<button onclick="back()">Back</button>
+</div>
+
 <div id="board" class="hidden">
-<h2>🏆 Leaderboard</h2>
 <ul id="list"></ul>
 <button onclick="back()">Back</button>
 </div>
 
 <script>
 // ===== DATA =====
-let users = JSON.parse(localStorage.getItem("users")||"{}");
+let users=JSON.parse(localStorage.getItem("users")||"{}");
 let currentUser=null;
 
-function save(){
-  localStorage.setItem("users",JSON.stringify(users));
-}
+function save(){localStorage.setItem("users",JSON.stringify(users));}
 
 // ===== AUTH =====
 function register(){
-  if(users[user.value]) return alert("User exists");
-  users[user.value]={pass:pass.value,score:0};
-  save();
-  alert("Registered!");
+ if(!user.value||!pass.value)return alert("Enter");
+ if(users[user.value])return alert("Exist");
+ users[user.value]={pass:pass.value,score:0};
+ save(); alert("OK");
 }
-
 function login(){
-  if(!users[user.value]||users[user.value].pass!=pass.value)
-    return alert("Wrong login");
-
-  currentUser=user.value;
-  auth.classList.add("hidden");
-  menu.classList.remove("hidden");
-
-  welcome.innerText="Hello "+currentUser;
-  updateScore();
+ if(!users[user.value]||users[user.value].pass!=pass.value)return alert("Wrong");
+ currentUser=user.value;
+ auth.style.display="none"; menu.style.display="block";
+ welcome.innerText="Hello "+currentUser;
+ updateScore();
 }
-
-function logout(){
-  location.reload();
-}
+function logout(){location.reload();}
 
 // ===== SCORE =====
-function addScore(s){
-  users[currentUser].score += s;
-  save();
-  updateScore();
-}
+function addScore(s){users[currentUser].score+=s;save();updateScore();}
+function updateScore(){scoreText.innerText="Score: "+users[currentUser].score;}
 
-function updateScore(){
-  scoreText.innerText="Score: "+users[currentUser].score;
-}
+// ===== UI =====
+function openGame(id){
+ stopAll();
+ document.querySelectorAll("div").forEach(x=>x.style.display="none");
+ document.getElementById(id).style.display="block";
 
-// ===== MENU =====
-function openGame(g){
-  menu.style.display="none";
-  document.getElementById(g).style.display="block";
+ if(id==="dodge")startDodge();
+ if(id==="mario")startMario();
+ if(id==="shoot")startShoot();
 }
-
 function back(){
-  guess.style.display="none";
-  click.style.display="none";
-  run.style.display="none";
-  luck.style.display="none";
-  board.style.display="none";
-  menu.style.display="block";
+ stopAll();
+ document.querySelectorAll("div").forEach(x=>x.style.display="none");
+ menu.style.display="block";
 }
+
+// ===== STOP LOOP =====
+let loops=[];
+function addLoop(f){loops.push(f);}
+function stopAll(){loops.forEach(cancelAnimationFrame);loops=[];}
 
 // ===== GUESS =====
-let num=Math.floor(Math.random()*100)+1;
-let tries=0;
-
+let num=Math.floor(Math.random()*100)+1,tries=0;
 function checkGuess(){
-  let g=Number(guessInput.value);
-  tries++;
-
-  if(g==num){
-    let score=Math.max(100-tries*10,10);
-    guessResult.innerText="WIN +"+score;
-    addScore(score);
-    num=Math.floor(Math.random()*100)+1;
-    tries=0;
-  } else {
-    guessResult.innerText=g<num?"⬆️":"⬇️";
-  }
+ let g=Number(guessInput.value);
+ if(!g)return;
+ tries++;
+ if(g===num){
+  let s=Math.max(100-tries*10,10);
+  guessResult.innerText="WIN +"+s;
+  addScore(s);
+  num=Math.random()*100|0; tries=0;
+ }else guessResult.innerText=g<num?"⬆️":"⬇️";
 }
 
 // ===== CLICK =====
 function startClick(){
-  let c=0;
-  clickCount.innerText="GO!";
-  document.onclick=()=>c++;
+ let c=0;
+ function h(){c++;}
+ document.addEventListener("click",h);
+ setTimeout(()=>{
+  document.removeEventListener("click",h);
+  clickCount.innerText=c;
+  addScore(c);
+ },5000);
+}
 
-  setTimeout(()=>{
-    document.onclick=null;
-    clickCount.innerText="Score: "+c;
-    addScore(c);
-  },5000);
+// ===== TAP =====
+function startTap(){
+ let c=0;
+ function h(){c++;}
+ document.addEventListener("click",h);
+ setTimeout(()=>{
+  document.removeEventListener("click",h);
+  tapScore.innerText=c;
+  addScore(c);
+ },3000);
 }
 
 // ===== RUN =====
-let btn=document.getElementById("runBtn");
-btn.style.left="40%";
-btn.style.top="50%";
-
-document.addEventListener("mousemove",move);
-document.addEventListener("touchstart",move);
-
-function move(e){
-  let t=e.touches?e.touches[0]:e;
-  let dx=t.clientX-btn.offsetLeft;
-  let dy=t.clientY-btn.offsetTop;
-
-  if(Math.sqrt(dx*dx+dy*dy)<100){
-    btn.style.left=Math.random()*300+"px";
-    btn.style.top=Math.random()*500+"px";
-  }
-}
-
-btn.onclick=()=>{
-  runMsg.innerText="Caught +20";
-  addScore(20);
-};
+let btn=runBtn;
+btn.style.position="absolute";
+btn.onclick=()=>{runMsg.innerText="+20";addScore(20);}
+document.addEventListener("mousemove",e=>{
+ if(Math.random()<0.2){
+  btn.style.left=Math.random()*200+"px";
+  btn.style.top=Math.random()*300+"px";
+ }
+});
 
 // ===== LUCK =====
 function testLuck(){
-  let s=Math.floor(Math.random()*100);
-  luckResult.innerText="You got "+s;
-  addScore(s);
+ let s=Math.random()*100|0;
+ luckResult.innerText=s;
+ addScore(s);
 }
 
-// ===== LEADERBOARD =====
-function showBoard(){
-  menu.style.display="none";
-  board.style.display="block";
+// ===== MATH =====
+let a,b;
+function newMath(){a=Math.random()*10|0;b=Math.random()*10|0;mathQ.innerText=a+"+"+b;}
+newMath();
+function checkMath(){
+ if(Number(mathInput.value)==a+b){addScore(30);mathResult.innerText="+30";}
+ else mathResult.innerText="Wrong";
+ newMath();
+}
 
-  list.innerHTML="";
-
-  let arr=Object.entries(users);
-  arr.sort((a,b)=>b[1].score-a[1].score);
-
-  arr.forEach((x,i)=>{
-    let li=document.createElement("li");
-
-    if(i===0){
-      li.innerText="👑 "+x[0]+" - "+x[1].score;
-      li.classList.add("top1");
-    } else {
-      li.innerText=(i+1)+". "+x[0]+" - "+x[1].score;
-    }
-
-    list.appendChild(li);
+// ===== DODGE =====
+let dC=dodgeCanvas.getContext("2d"),obs=[],px=130,scoreD=0;
+function startDodge(){
+ obs=[];scoreD=0;
+ function loop(){
+  dC.clearRect(0,0,300,400);
+  dC.fillRect(px,350,40,40);
+  if(Math.random()<0.05)obs.push({x:Math.random()*260,y:0});
+  obs.forEach(o=>{
+   o.y+=4;
+   dC.fillRect(o.x,o.y,20,20);
+   if(o.y>340&&o.x<px+40&&o.x+20>px){
+    addScore(scoreD);
+    dodgeScore.innerText="GameOver "+scoreD;
+    return;
+   }
   });
+  scoreD++;
+  dodgeScore.innerText=scoreD;
+  let id=requestAnimationFrame(loop);
+  addLoop(id);
+ }
+ loop();
+}
+dodgeCanvas.addEventListener("touchmove",e=>px=e.touches[0].clientX-150);
+
+// ===== MARIO =====
+let mCtx=marioCanvas.getContext("2d"),my=300,vy=0;
+function startMario(){
+ function loop(){
+  mCtx.clearRect(0,0,300,400);
+  vy+=0.5; my+=vy;
+  if(my>300){my=300;vy=0;}
+  mCtx.fillRect(50,my,30,30);
+  let id=requestAnimationFrame(loop);
+  addLoop(id);
+ }
+ loop();
+}
+marioCanvas.onclick=()=>{vy=-10;}
+
+// ===== SHOOT =====
+let sCtx=shootCanvas.getContext("2d"),bul=[],en=[],ss=0;
+function startShoot(){
+ bul=[];en=[];ss=0;
+ function loop(){
+  sCtx.clearRect(0,0,300,400);
+  bul.forEach(b=>{b.y-=6;sCtx.fillRect(b.x,b.y,5,10);});
+  if(Math.random()<0.03)en.push({x:Math.random()*280,y:0});
+  en.forEach(e=>{
+   e.y+=3;
+   sCtx.fillRect(e.x,e.y,20,20);
+   bul.forEach(b=>{
+    if(b.x<e.x+20&&b.x>e.x&&b.y<e.y+20&&b.y>e.y){
+     ss+=10;
+     shootScore.innerText=ss;
+     e.y=999;
+    }
+   });
+  });
+  let id=requestAnimationFrame(loop);
+  addLoop(id);
+ }
+ loop();
+}
+shootCanvas.onclick=()=>bul.push({x:150,y:350});
+
+// ===== BOARD =====
+function showBoard(){
+ openGame("board");
+ list.innerHTML="";
+ let arr=Object.entries(users).sort((a,b)=>b[1].score-a[1].score);
+ arr.forEach((x,i)=>{
+  let li=document.createElement("li");
+  if(i===0){li.innerText="👑 "+x[0]+" - "+x[1].score;li.classList.add("top1");}
+  else li.innerText=(i+1)+". "+x[0]+" - "+x[1].score;
+  list.appendChild(li);
+ });
 }
 </script>
 
