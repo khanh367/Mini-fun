@@ -12,9 +12,7 @@ input{padding:10px;margin:5px;}
 canvas{background:#fff;border:1px solid #ccc;margin-top:10px;}
 
 .top1{
- color:gold;
- font-weight:bold;
- font-size:20px;
+ color:gold;font-weight:bold;font-size:20px;
  animation:glow 1s infinite alternate;
 }
 @keyframes glow{
@@ -53,36 +51,30 @@ canvas{background:#fff;border:1px solid #ccc;margin-top:10px;}
 <button onclick="logout()">Logout</button>
 </div>
 
-<!-- BASIC GAMES -->
+<!-- BASIC -->
 <div id="guess" class="hidden">
-<input id="guessInput" type="number">
-<button onclick="checkGuess()">OK</button>
-<p id="guessResult"></p>
-<button onclick="back()">Back</button>
+<input id="guessInput"><button onclick="checkGuess()">OK</button>
+<p id="guessResult"></p><button onclick="back()">Back</button>
 </div>
 
 <div id="click" class="hidden">
 <button onclick="startClick()">Start</button>
-<p id="clickCount"></p>
-<button onclick="back()">Back</button>
+<p id="clickCount"></p><button onclick="back()">Back</button>
 </div>
 
 <div id="tap" class="hidden">
 <button onclick="startTap()">Start</button>
-<p id="tapScore"></p>
-<button onclick="back()">Back</button>
+<p id="tapScore"></p><button onclick="back()">Back</button>
 </div>
 
 <div id="run" class="hidden">
 <button id="runBtn">CLICK</button>
-<p id="runMsg"></p>
-<button onclick="back()">Back</button>
+<p id="runMsg"></p><button onclick="back()">Back</button>
 </div>
 
 <div id="luck" class="hidden">
 <button onclick="testLuck()">Test</button>
-<p id="luckResult"></p>
-<button onclick="back()">Back</button>
+<p id="luckResult"></p><button onclick="back()">Back</button>
 </div>
 
 <div id="math" class="hidden">
@@ -93,7 +85,7 @@ canvas{background:#fff;border:1px solid #ccc;margin-top:10px;}
 <button onclick="back()">Back</button>
 </div>
 
-<!-- ADVANCED -->
+<!-- CANVAS -->
 <div id="dodge" class="hidden">
 <canvas id="dodgeCanvas" width="300" height="400"></canvas>
 <p id="dodgeScore"></p>
@@ -102,11 +94,21 @@ canvas{background:#fff;border:1px solid #ccc;margin-top:10px;}
 
 <div id="mario" class="hidden">
 <canvas id="marioCanvas" width="300" height="400"></canvas>
+<div>
+<button onclick="mLeft()">⬅️</button>
+<button onclick="mJump()">⬆️</button>
+<button onclick="mRight()">➡️</button>
+</div>
 <button onclick="back()">Back</button>
 </div>
 
 <div id="shoot" class="hidden">
 <canvas id="shootCanvas" width="300" height="400"></canvas>
+<div>
+<button onclick="gLeft()">⬅️</button>
+<button onclick="shoot()">🔫</button>
+<button onclick="gRight()">➡️</button>
+</div>
 <p id="shootScore"></p>
 <button onclick="back()">Back</button>
 </div>
@@ -123,27 +125,29 @@ let currentUser=null;
 
 function save(){localStorage.setItem("users",JSON.stringify(users));}
 
-// ===== AUTH =====
+// AUTH
 function register(){
  if(!user.value||!pass.value)return alert("Enter");
  if(users[user.value])return alert("Exist");
  users[user.value]={pass:pass.value,score:0};
- save(); alert("OK");
+ save();alert("OK");
 }
 function login(){
  if(!users[user.value]||users[user.value].pass!=pass.value)return alert("Wrong");
  currentUser=user.value;
- auth.style.display="none"; menu.style.display="block";
+ auth.style.display="none";menu.style.display="block";
  welcome.innerText="Hello "+currentUser;
  updateScore();
 }
 function logout(){location.reload();}
 
-// ===== SCORE =====
+// SCORE
 function addScore(s){users[currentUser].score+=s;save();updateScore();}
 function updateScore(){scoreText.innerText="Score: "+users[currentUser].score;}
 
-// ===== UI =====
+// UI
+let loops=[];
+function stopAll(){loops.forEach(cancelAnimationFrame);loops=[];}
 function openGame(id){
  stopAll();
  document.querySelectorAll("div").forEach(x=>x.style.display="none");
@@ -159,124 +163,82 @@ function back(){
  menu.style.display="block";
 }
 
-// ===== STOP LOOP =====
-let loops=[];
-function addLoop(f){loops.push(f);}
-function stopAll(){loops.forEach(cancelAnimationFrame);loops=[];}
-
-// ===== GUESS =====
-let num=Math.floor(Math.random()*100)+1,tries=0;
+// ===== BASIC =====
+let num=Math.random()*100|0,tries=0;
 function checkGuess(){
- let g=Number(guessInput.value);
- if(!g)return;
+ let g=Number(guessInput.value); if(!g)return;
  tries++;
- if(g===num){
-  let s=Math.max(100-tries*10,10);
-  guessResult.innerText="WIN +"+s;
-  addScore(s);
-  num=Math.random()*100|0; tries=0;
- }else guessResult.innerText=g<num?"⬆️":"⬇️";
+ if(g===num){let s=Math.max(100-tries*10,10);addScore(s);guessResult.innerText="+"+s;num=Math.random()*100|0;tries=0;}
+ else guessResult.innerText=g<num?"⬆️":"⬇️";
 }
 
-// ===== CLICK =====
 function startClick(){
- let c=0;
- function h(){c++;}
+ let c=0; function h(){c++;}
  document.addEventListener("click",h);
- setTimeout(()=>{
-  document.removeEventListener("click",h);
-  clickCount.innerText=c;
-  addScore(c);
- },5000);
+ setTimeout(()=>{document.removeEventListener("click",h);clickCount.innerText=c;addScore(c);},5000);
 }
 
-// ===== TAP =====
 function startTap(){
- let c=0;
- function h(){c++;}
+ let c=0; function h(){c++;}
  document.addEventListener("click",h);
- setTimeout(()=>{
-  document.removeEventListener("click",h);
-  tapScore.innerText=c;
-  addScore(c);
- },3000);
+ setTimeout(()=>{document.removeEventListener("click",h);tapScore.innerText=c;addScore(c);},3000);
 }
 
-// ===== RUN =====
-let btn=runBtn;
-btn.style.position="absolute";
-btn.onclick=()=>{runMsg.innerText="+20";addScore(20);}
-document.addEventListener("mousemove",e=>{
- if(Math.random()<0.2){
-  btn.style.left=Math.random()*200+"px";
-  btn.style.top=Math.random()*300+"px";
- }
-});
+runBtn.onclick=()=>{runMsg.innerText="+20";addScore(20);}
+document.addEventListener("mousemove",()=>{runBtn.style.left=Math.random()*200+"px";runBtn.style.top=Math.random()*300+"px";});
 
-// ===== LUCK =====
-function testLuck(){
- let s=Math.random()*100|0;
- luckResult.innerText=s;
- addScore(s);
-}
+function testLuck(){let s=Math.random()*100|0;luckResult.innerText=s;addScore(s);}
 
-// ===== MATH =====
 let a,b;
 function newMath(){a=Math.random()*10|0;b=Math.random()*10|0;mathQ.innerText=a+"+"+b;}
 newMath();
-function checkMath(){
- if(Number(mathInput.value)==a+b){addScore(30);mathResult.innerText="+30";}
- else mathResult.innerText="Wrong";
- newMath();
-}
+function checkMath(){if(Number(mathInput.value)==a+b){addScore(30);mathResult.innerText="+30";}else mathResult.innerText="Wrong";newMath();}
 
 // ===== DODGE =====
-let dC=dodgeCanvas.getContext("2d"),obs=[],px=130,scoreD=0;
+let dCtx=dodgeCanvas.getContext("2d"),obs=[],px=130,ds=0;
 function startDodge(){
- obs=[];scoreD=0;
+ obs=[];ds=0;
  function loop(){
-  dC.clearRect(0,0,300,400);
-  dC.fillRect(px,350,40,40);
+  dCtx.clearRect(0,0,300,400);
+  dCtx.fillRect(px,350,40,40);
   if(Math.random()<0.05)obs.push({x:Math.random()*260,y:0});
   obs.forEach(o=>{
    o.y+=4;
-   dC.fillRect(o.x,o.y,20,20);
-   if(o.y>340&&o.x<px+40&&o.x+20>px){
-    addScore(scoreD);
-    dodgeScore.innerText="GameOver "+scoreD;
-    return;
-   }
+   dCtx.fillRect(o.x,o.y,20,20);
+   if(o.y>340&&o.x<px+40&&o.x+20>px){addScore(ds);dodgeScore.innerText="GameOver "+ds;return;}
   });
-  scoreD++;
-  dodgeScore.innerText=scoreD;
-  let id=requestAnimationFrame(loop);
-  addLoop(id);
+  ds++;dodgeScore.innerText=ds;
+  let id=requestAnimationFrame(loop);loops.push(id);
  }
  loop();
 }
 dodgeCanvas.addEventListener("touchmove",e=>px=e.touches[0].clientX-150);
 
 // ===== MARIO =====
-let mCtx=marioCanvas.getContext("2d"),my=300,vy=0;
+let mCtx=marioCanvas.getContext("2d");
+let mx=100,my=300,vy=0;
 function startMario(){
  function loop(){
   mCtx.clearRect(0,0,300,400);
   vy+=0.5; my+=vy;
   if(my>300){my=300;vy=0;}
-  mCtx.fillRect(50,my,30,30);
-  let id=requestAnimationFrame(loop);
-  addLoop(id);
+  mCtx.fillRect(mx,my,30,30);
+  let id=requestAnimationFrame(loop);loops.push(id);
  }
  loop();
 }
-marioCanvas.onclick=()=>{vy=-10;}
+function mLeft(){mx-=20;}
+function mRight(){mx+=20;}
+function mJump(){if(my>=300)vy=-10;}
 
-// ===== SHOOT =====
-let sCtx=shootCanvas.getContext("2d"),bul=[],en=[],ss=0;
+// ===== SHOOTER =====
+let sCtx=shootCanvas.getContext("2d"),gun=130,bul=[],en=[],ss=0;
 function startShoot(){
  bul=[];en=[];ss=0;
  function loop(){
   sCtx.clearRect(0,0,300,400);
+  sCtx.fillRect(gun,370,40,20);
+
   bul.forEach(b=>{b.y-=6;sCtx.fillRect(b.x,b.y,5,10);});
   if(Math.random()<0.03)en.push({x:Math.random()*280,y:0});
   en.forEach(e=>{
@@ -284,18 +246,18 @@ function startShoot(){
    sCtx.fillRect(e.x,e.y,20,20);
    bul.forEach(b=>{
     if(b.x<e.x+20&&b.x>e.x&&b.y<e.y+20&&b.y>e.y){
-     ss+=10;
-     shootScore.innerText=ss;
-     e.y=999;
+     ss+=10;shootScore.innerText=ss;e.y=999;
     }
    });
   });
-  let id=requestAnimationFrame(loop);
-  addLoop(id);
+
+  let id=requestAnimationFrame(loop);loops.push(id);
  }
  loop();
 }
-shootCanvas.onclick=()=>bul.push({x:150,y:350});
+function gLeft(){gun-=20;}
+function gRight(){gun+=20;}
+function shoot(){bul.push({x:gun+20,y:350});}
 
 // ===== BOARD =====
 function showBoard(){
