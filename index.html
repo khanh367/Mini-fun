@@ -1,403 +1,182 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini Fun Pro</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neal.fun Clone - Tiêu tiền</title>
+    <style>
+        /* PHẦN GIAO DIỆN (CSS) */
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f1f2f6;
+            margin: 0;
+            padding-bottom: 50px;
+        }
 
-<style>
-body{font-family:Arial;text-align:center;background:#f5f5f5;}
-button{padding:10px;margin:5px;border:none;border-radius:8px;background:black;color:white;}
-input{padding:10px;margin:5px;}
-.hidden{display:none;}
-canvas{background:#fff;border:1px solid #ccc;margin-top:10px;}
+        .header {
+            background: #ffffff;
+            padding: 30px 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
 
-.top1{
- color:gold;font-weight:bold;font-size:20px;
- animation:glow 1s infinite alternate;
-}
-@keyframes glow{
- from{ text-shadow:0 0 5px gold;}
- to{ text-shadow:0 0 20px orange;}
-}
-</style>
+        h1 { margin: 0 0 10px 0; font-size: 24px; }
+
+        #balance {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2ecc71;
+            background: #1e272e;
+            display: inline-block;
+            padding: 10px 30px;
+            border-radius: 10px;
+            min-width: 300px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            max-width: 1100px;
+            margin: 20px auto;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .card:hover { transform: translateY(-5px); }
+
+        .emoji { font-size: 60px; margin-bottom: 10px; }
+
+        .card h3 { margin: 10px 0; font-size: 22px; }
+
+        .price { color: #2ecc71; font-weight: bold; font-size: 18px; margin-bottom: 20px; }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .buy { background-color: #2ecc71; color: white; }
+        .buy:hover { background-color: #27ae60; }
+
+        .sell { background-color: #f1f2f6; color: #333; }
+        .sell.active { background-color: #e74c3c; color: white; }
+
+        button:disabled {
+            background-color: #ecf0f1;
+            color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        .count {
+            width: 50px;
+            font-weight: bold;
+            font-size: 18px;
+        }
+    </style>
 </head>
-
 <body>
 
-<h1>Mini Fun 😈</h1>
-
-<div id="auth">
-<input id="user" placeholder="Username"><br>
-<input id="pass" type="password"><br>
-<button onclick="login()">Login</button>
-<button onclick="register()">Register</button>
-</div>
-
-<div id="menu" class="hidden">
-<h2 id="welcome"></h2>
-<h3 id="scoreText"></h3>
-
-<button onclick="openGame('guess')">🎯 Guess</button>
-<button onclick="openGame('click')">⚡ Click</button>
-<button onclick="openGame('tap')">👆 Tap</button>
-<button onclick="openGame('run')">🏃 Catch</button>
-<button onclick="openGame('luck')">🧠 Luck</button>
-<button onclick="openGame('math')">➕ Math</button>
-<button onclick="openGame('dodge')">💣 Dodge</button>
-<button onclick="openGame('mario')">🕹 Mario</button>
-<button onclick="openGame('shoot')">🔫 Shooter</button>
-
-<button onclick="showBoard()">🏆 Leaderboard</button>
-<button onclick="logout()">Logout</button>
-</div>
-
-<!-- BASIC -->
-<div id="guess" class="hidden">
-<input id="guessInput"><button onclick="checkGuess()">OK</button>
-<p id="guessResult"></p><button onclick="back()">Back</button>
-</div>
-
-<div id="click" class="hidden">
-<button onclick="startClick()">Start</button>
-<p id="clickCount"></p><button onclick="back()">Back</button>
-</div>
-
-<div id="tap" class="hidden">
-<button onclick="startTap()">Start</button>
-<p id="tapScore"></p><button onclick="back()">Back</button>
-</div>
-
-<div id="run" class="hidden">
-<button id="runBtn">CLICK</button>
-<p id="runMsg"></p><button onclick="back()">Back</button>
-</div>
-
-<div id="luck" class="hidden">
-<button onclick="testLuck()">Test</button>
-<p id="luckResult"></p><button onclick="back()">Back</button>
-</div>
-
-<div id="math" class="hidden">
-<p id="mathQ"></p>
-<input id="mathInput">
-<button onclick="checkMath()">OK</button>
-<p id="mathResult"></p>
-<button onclick="back()">Back</button>
-</div>
-
-<!-- CANVAS -->
-<div id="dodge" class="hidden">
-<canvas id="dodgeCanvas" width="300" height="400"></canvas>
-<p id="dodgeScore"></p>
-<button onclick="back()">Back</button>
-</div>
-
-<div id="mario" class="hidden">
-<canvas id="marioCanvas" width="300" height="400"></canvas>
-<div>
-<button onclick="mLeft()">⬅️</button>
-<button onclick="mJump()">⬆️</button>
-<button onclick="mRight()">➡️</button>
-</div>
-<button onclick="back()">Back</button>
-</div>
-
-<div id="shoot" class="hidden">
-<canvas id="shootCanvas" width="300" height="400"></canvas>
-<div>
-<button onclick="gLeft()">⬅️</button>
-<button onclick="shoot()">🔫</button>
-<button onclick="gRight()">➡️</button>
-</div>
-<p id="shootScore"></p>
-<button onclick="back()">Back</button>
-</div>
-
-<div id="board" class="hidden">
-<ul id="list"></ul>
-<button onclick="back()">Back</button>
-</div>
-
-<script>
-// ===== DATA =====
-let users=JSON.parse(localStorage.getItem("users")||"{}");
-let currentUser=null;
-
-function save(){localStorage.setItem("users",JSON.stringify(users));}
-
-// AUTH
-function register(){
- if(!user.value||!pass.value)return alert("Enter");
- if(users[user.value])return alert("Exist");
- users[user.value]={pass:pass.value,score:0};
- save();alert("OK");
-}
-function login(){
- if(!users[user.value]||users[user.value].pass!=pass.value)return alert("Wrong");
- currentUser=user.value;
- auth.style.display="none";menu.style.display="block";
- welcome.innerText="Hello "+currentUser;
- updateScore();
-}
-function logout(){location.reload();}
-
-// SCORE
-function addScore(s){users[currentUser].score+=s;save();updateScore();}
-function updateScore(){scoreText.innerText="Score: "+users[currentUser].score;}
-
-// LOOP CONTROL
-let loops=[];
-function stopAll(){loops.forEach(cancelAnimationFrame);loops=[];}
-
-// UI
-function openGame(id){
- stopAll();
- document.querySelectorAll("div").forEach(x=>x.style.display="none");
- document.getElementById(id).style.display="block";
-
- if(id==="dodge")startDodge();
- if(id==="mario")startMario();
- if(id==="shoot")startShoot();
-}
-function back(){
- stopAll();
- document.querySelectorAll("div").forEach(x=>x.style.display="none");
- menu.style.display="block";
-}
-
-// ===== BASIC GAMES =====
-let num=Math.random()*100|0,tries=0;
-function checkGuess(){
- let g=Number(guessInput.value); if(!g)return;
- tries++;
- if(g===num){let s=Math.max(100-tries*10,10);addScore(s);guessResult.innerText="+"+s;num=Math.random()*100|0;tries=0;}
- else guessResult.innerText=g<num?"⬆️":"⬇️";
-}
-
-function startClick(){
- let c=0; function h(){c++;}
- document.addEventListener("click",h);
- setTimeout(()=>{document.removeEventListener("click",h);clickCount.innerText=c;addScore(c);},5000);
-}
-
-function startTap(){
- let c=0; function h(){c++;}
- document.addEventListener("click",h);
- setTimeout(()=>{document.removeEventListener("click",h);tapScore.innerText=c;addScore(c);},3000);
-}
-
-runBtn.onclick=()=>{runMsg.innerText="+20";addScore(20);}
-document.addEventListener("mousemove",()=>{
- runBtn.style.left=Math.random()*200+"px";
- runBtn.style.top=Math.random()*300+"px";
-});
-
-function testLuck(){let s=Math.random()*100|0;luckResult.innerText=s;addScore(s);}
-
-let a,b;
-function newMath(){a=Math.random()*10|0;b=Math.random()*10|0;mathQ.innerText=a+"+"+b;}
-newMath();
-function checkMath(){if(Number(mathInput.value)==a+b){addScore(30);mathResult.innerText="+30";}else mathResult.innerText="Wrong";newMath();}
-
-// ===== DODGE =====
-let dCtx=dodgeCanvas.getContext("2d"),obs=[],px=130,ds=0;
-function startDodge(){
- obs=[];ds=0;
- function loop(){
-  dCtx.clearRect(0,0,300,400);
-  dCtx.fillRect(px,350,40,40);
-
-  if(Math.random()<0.05)obs.push({x:Math.random()*260,y:0});
-
-  obs.forEach(o=>{
-   o.y+=4;
-   dCtx.fillRect(o.x,o.y,20,20);
-   if(o.y>340&&o.x<px+40&&o.x+20>px){
-    addScore(ds);
-    dodgeScore.innerText="GameOver "+ds;
-    return;
-   }
-  });
-
-  ds++;dodgeScore.innerText=ds;
-  let id=requestAnimationFrame(loop);loops.push(id);
- }
- loop();
-}
-dodgeCanvas.addEventListener("touchmove",e=>px=e.touches[0].clientX-150);
-
-// ===== MARIO FINAL FIX =====
-let mCtx = marioCanvas.getContext("2d");
-
-let mario, mLoopRunning = false;
-
-function startMario(){
-  mario = {
-    x: 120,
-    y: 300,
-    vy: 0,
-    onGround: true
-  };
-
-  mLoopRunning = true;
-  marioLoop();
-}
-
-function marioLoop(){
-  if(!mLoopRunning) return;
-
-  mCtx.clearRect(0,0,300,400);
-
-  // gravity
-  mario.vy += 0.5;
-  mario.y += mario.vy;
-
-  // ground
-  if(mario.y >= 300){
-    mario.y = 300;
-    mario.vy = 0;
-    mario.onGround = true;
-  }
-
-  // giới hạn màn hình
-  if(mario.x < 0) mario.x = 0;
-  if(mario.x > 270) mario.x = 270;
-
-  // draw
-  mCtx.fillRect(mario.x, mario.y, 30, 30);
-
-  requestAnimationFrame(marioLoop);
-}
-
-// control
-function mLeft(){ mario.x -= 15; }
-function mRight(){ mario.x += 15; }
-function mJump(){
-  if(mario.onGround){
-    mario.vy = -11;
-    mario.onGround = false;
-  }
-}
-
-// stop khi back
-function stopMario(){
-  mLoopRunning = false;
-}
-
-// ===== SHOOTER FINAL FIX =====
-let sCtx = shootCanvas.getContext("2d");
-
-let gun, bullets, enemies, shootRunning = false, scoreS;
-
-function startShoot(){
-  gun = { x:130 };
-  bullets = [];
-  enemies = [];
-  scoreS = 0;
-
-  shootRunning = true;
-  shootLoop();
-}
-
-function shootLoop(){
-  if(!shootRunning) return;
-
-  sCtx.clearRect(0,0,300,400);
-
-  // giới hạn súng
-  if(gun.x < 0) gun.x = 0;
-  if(gun.x > 260) gun.x = 260;
-
-  // draw gun
-  sCtx.fillRect(gun.x,370,40,20);
-
-  // bullets
-  for(let i=bullets.length-1;i>=0;i--){
-    let b = bullets[i];
-    b.y -= 6;
-
-    if(b.y < 0){
-      bullets.splice(i,1);
-      continue;
-    }
-
-    sCtx.fillRect(b.x,b.y,5,10);
-  }
-
-  // spawn enemy
-  if(Math.random() < 0.03){
-    enemies.push({x:Math.random()*260, y:0});
-  }
-
-  // enemies + collision
-  for(let i=enemies.length-1;i>=0;i--){
-    let e = enemies[i];
-    e.y += 3;
-
-    if(e.y > 400){
-      enemies.splice(i,1);
-      continue;
-    }
-
-    sCtx.fillRect(e.x,e.y,20,20);
-
-    for(let j=bullets.length-1;j>=0;j--){
-      let b = bullets[j];
-
-      if(
-        b.x < e.x+20 &&
-        b.x+5 > e.x &&
-        b.y < e.y+20 &&
-        b.y+10 > e.y
-      ){
-        bullets.splice(j,1);
-        enemies.splice(i,1);
-        scoreS += 10;
-        shootScore.innerText = "Score: " + scoreS;
-        break;
-      }
-    }
-  }
-
-  requestAnimationFrame(shootLoop);
-}
-
-// control
-function gLeft(){ gun.x -= 15; }
-function gRight(){ gun.x += 15; }
-function shoot(){
-  bullets.push({x:gun.x+18, y:350});
-}
-
-function back(){
-  // dừng game
-  if(typeof mLoopRunning !== "undefined") mLoopRunning = false;
-  if(typeof shootRunning !== "undefined") shootRunning = false;
-
-  document.querySelectorAll("div").forEach(x=>x.style.display="none");
-  menu.style.display="block";
-}
-
-// ===== LEADERBOARD =====
-function showBoard(){
- openGame("board");
- list.innerHTML="";
- let arr=Object.entries(users).sort((a,b)=>b[1].score-a[1].score);
-
- arr.forEach((x,i)=>{
-  let li=document.createElement("li");
-
-  if(i===0){
-    li.innerText="👑 "+x[0]+" - "+x[1].score;
-    li.classList.add("top1");
-  } else {
-    li.innerText=(i+1)+". "+x[0]+" - "+x[1].score;
-  }
-
-  list.appendChild(li);
- });
-}
-</script>
-
+    <div class="header">
+        <h1>Tiêu hết 1,000,000,000$</h1>
+        <div id="balance">$ 1,000,000,000</div>
+    </div>
+
+    <div class="container" id="item-grid">
+        </div>
+
+    <script>
+        /* PHẦN LOGIC (JAVASCRIPT) */
+        const items = [
+            { name: "Ly Cà Phê", price: 5, img: "☕" },
+            { name: "Vé Xem Phim", price: 15, img: "🎬" },
+            { name: "Máy Chơi Game", price: 500, img: "🎮" },
+            { name: "iPhone 15 Pro", price: 1000, img: "📱" },
+            { name: "Mô Tô Phân Khối Lớn", price: 20000, img: "🏍️" },
+            { name: "Siêu Xe Ferrari", price: 250000, img: "🏎️" },
+            { name: "Du Thuyền", price: 5000000, img: "🚤" },
+            { name: "Biệt Thự Biển", price: 15000000, img: "🏠" },
+            { name: "Tòa Nhà Chọc Trời", price: 800000000, img: "🏢" }
+        ];
+
+        let balance = 1000000000;
+        let inventory = {};
+
+        // Khởi tạo số lượng bằng 0 cho tất cả món đồ
+        items.forEach(item => inventory[item.name] = 0);
+
+        function updateUI() {
+            // Cập nhật số tiền hiển thị
+            document.getElementById('balance').innerText = `$ ${balance.toLocaleString()}`;
+            
+            const grid = document.getElementById('item-grid');
+            grid.innerHTML = '';
+
+            items.forEach(item => {
+                const count = inventory[item.name];
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                card.innerHTML = `
+                    <div class="emoji">${item.img}</div>
+                    <h3>${item.name}</h3>
+                    <div class="price">$${item.price.toLocaleString()}</div>
+                    <div class="controls">
+                        <button class="sell ${count > 0 ? 'active' : ''}" 
+                                onclick="sellItem('${item.name}', ${item.price})" 
+                                ${count === 0 ? 'disabled' : ''}>Bán</button>
+                        
+                        <span class="count">${count}</span>
+                        
+                        <button class="buy" 
+                                onclick="buyItem('${item.name}', ${item.price})" 
+                                ${balance < item.price ? 'disabled' : ''}>Mua</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        window.buyItem = (name, price) => {
+            if (balance >= price) {
+                balance -= price;
+                inventory[name]++;
+                updateUI();
+            }
+        };
+
+        window.sellItem = (name, price) => {
+            if (inventory[name] > 0) {
+                balance += price;
+                inventory[name]--;
+                updateUI();
+            }
+        };
+
+        // Chạy lần đầu tiên để hiện danh sách
+        updateUI();
+    </script>
 </body>
 </html>
