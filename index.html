@@ -145,9 +145,11 @@ function logout(){location.reload();}
 function addScore(s){users[currentUser].score+=s;save();updateScore();}
 function updateScore(){scoreText.innerText="Score: "+users[currentUser].score;}
 
-// UI
+// LOOP CONTROL
 let loops=[];
 function stopAll(){loops.forEach(cancelAnimationFrame);loops=[];}
+
+// UI
 function openGame(id){
  stopAll();
  document.querySelectorAll("div").forEach(x=>x.style.display="none");
@@ -163,7 +165,7 @@ function back(){
  menu.style.display="block";
 }
 
-// ===== BASIC =====
+// ===== BASIC GAMES =====
 let num=Math.random()*100|0,tries=0;
 function checkGuess(){
  let g=Number(guessInput.value); if(!g)return;
@@ -185,7 +187,10 @@ function startTap(){
 }
 
 runBtn.onclick=()=>{runMsg.innerText="+20";addScore(20);}
-document.addEventListener("mousemove",()=>{runBtn.style.left=Math.random()*200+"px";runBtn.style.top=Math.random()*300+"px";});
+document.addEventListener("mousemove",()=>{
+ runBtn.style.left=Math.random()*200+"px";
+ runBtn.style.top=Math.random()*300+"px";
+});
 
 function testLuck(){let s=Math.random()*100|0;luckResult.innerText=s;addScore(s);}
 
@@ -201,12 +206,19 @@ function startDodge(){
  function loop(){
   dCtx.clearRect(0,0,300,400);
   dCtx.fillRect(px,350,40,40);
+
   if(Math.random()<0.05)obs.push({x:Math.random()*260,y:0});
+
   obs.forEach(o=>{
    o.y+=4;
    dCtx.fillRect(o.x,o.y,20,20);
-   if(o.y>340&&o.x<px+40&&o.x+20>px){addScore(ds);dodgeScore.innerText="GameOver "+ds;return;}
+   if(o.y>340&&o.x<px+40&&o.x+20>px){
+    addScore(ds);
+    dodgeScore.innerText="GameOver "+ds;
+    return;
+   }
   });
+
   ds++;dodgeScore.innerText=ds;
   let id=requestAnimationFrame(loop);loops.push(id);
  }
@@ -214,60 +226,124 @@ function startDodge(){
 }
 dodgeCanvas.addEventListener("touchmove",e=>px=e.touches[0].clientX-150);
 
-// ===== MARIO =====
+// ===== MARIO (FIXED) =====
 let mCtx=marioCanvas.getContext("2d");
-let mx=100,my=300,vy=0;
+let mario, mLoop;
+
 function startMario(){
+ mario={x:120,y:300,vy:0,onGround:true};
+ cancelAnimationFrame(mLoop);
+
  function loop(){
   mCtx.clearRect(0,0,300,400);
-  vy+=0.5; my+=vy;
-  if(my>300){my=300;vy=0;}
-  mCtx.fillRect(mx,my,30,30);
-  let id=requestAnimationFrame(loop);loops.push(id);
+
+  mario.vy+=0.5;
+  mario.y+=mario.vy;
+
+  if(mario.y>=300){
+   mario.y=300;
+   mario.vy=0;
+   mario.onGround=true;
+  }
+
+  if(mario.x<0)mario.x=0;
+  if(mario.x>270)mario.x=270;
+
+  mCtx.fillRect(mario.x,mario.y,30,30);
+
+  mLoop=requestAnimationFrame(loop);
  }
  loop();
 }
-function mLeft(){mx-=20;}
-function mRight(){mx+=20;}
-function mJump(){if(my>=300)vy=-10;}
 
-// ===== SHOOTER =====
-let sCtx=shootCanvas.getContext("2d"),gun=130,bul=[],en=[],ss=0;
+function mLeft(){mario.x-=20;}
+function mRight(){mario.x+=20;}
+function mJump(){
+ if(mario.onGround){
+  mario.vy=-10;
+  mario.onGround=false;
+ }
+}
+
+// ===== SHOOTER (FIXED) =====
+let sCtx=shootCanvas.getContext("2d");
+let gun, bullets, enemies, sLoop, scoreS;
+
 function startShoot(){
- bul=[];en=[];ss=0;
+ gun={x:130};
+ bullets=[];
+ enemies=[];
+ scoreS=0;
+
+ cancelAnimationFrame(sLoop);
+
  function loop(){
   sCtx.clearRect(0,0,300,400);
-  sCtx.fillRect(gun,370,40,20);
 
-  bul.forEach(b=>{b.y-=6;sCtx.fillRect(b.x,b.y,5,10);});
-  if(Math.random()<0.03)en.push({x:Math.random()*280,y:0});
-  en.forEach(e=>{
+  if(gun.x<0)gun.x=0;
+  if(gun.x>260)gun.x=260;
+
+  sCtx.fillRect(gun.x,370,40,20);
+
+  bullets.forEach((b,i)=>{
+   b.y-=6;
+   if(b.y<0) bullets.splice(i,1);
+   else sCtx.fillRect(b.x,b.y,5,10);
+  });
+
+  if(Math.random()<0.03){
+   enemies.push({x:Math.random()*260,y:0});
+  }
+
+  enemies.forEach((e,ei)=>{
    e.y+=3;
+
+   if(e.y>400){
+    enemies.splice(ei,1);
+   }
+
    sCtx.fillRect(e.x,e.y,20,20);
-   bul.forEach(b=>{
-    if(b.x<e.x+20&&b.x>e.x&&b.y<e.y+20&&b.y>e.y){
-     ss+=10;shootScore.innerText=ss;e.y=999;
+
+   bullets.forEach((b,bi)=>{
+    if(
+      b.x<e.x+20 &&
+      b.x+5>e.x &&
+      b.y<e.y+20 &&
+      b.y+10>e.y
+    ){
+      bullets.splice(bi,1);
+      enemies.splice(ei,1);
+      scoreS+=10;
+      shootScore.innerText="Score: "+scoreS;
     }
    });
   });
 
-  let id=requestAnimationFrame(loop);loops.push(id);
+  sLoop=requestAnimationFrame(loop);
  }
  loop();
 }
-function gLeft(){gun-=20;}
-function gRight(){gun+=20;}
-function shoot(){bul.push({x:gun+20,y:350});}
 
-// ===== BOARD =====
+function gLeft(){gun.x-=20;}
+function gRight(){gun.x+=20;}
+function shoot(){bullets.push({x:gun.x+18,y:350});}
+
+// ===== LEADERBOARD =====
 function showBoard(){
  openGame("board");
  list.innerHTML="";
  let arr=Object.entries(users).sort((a,b)=>b[1].score-a[1].score);
+
  arr.forEach((x,i)=>{
   let li=document.createElement("li");
-  if(i===0){li.innerText="👑 "+x[0]+" - "+x[1].score;li.classList.add("top1");}
-  else li.innerText=(i+1)+". "+x[0]+" - "+x[1].score;
+
+  if(i===0){
+    li.innerText="👑 "+x[0]+" - "+x[1].score;
+    li.classList.add("top1");
+  } else {
+    li.innerText=(i+1)+". "+x[0]+" - "+x[1].score;
+  }
+
   list.appendChild(li);
  });
 }
