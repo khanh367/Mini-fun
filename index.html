@@ -1,368 +1,343 @@
-```react
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, collection, doc, setDoc, getDoc, 
-  onSnapshot, query 
-} from 'firebase/firestore';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged, updateProfile, signInWithCustomToken
-} from 'firebase/auth';
+```html
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Commando - Turbo Web</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; background: #020617; color: white; font-family: sans-serif; overflow: hidden; touch-action: none; user-select: none; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        .joystick-base { width: 120px; height: 120px; background: rgba(30, 41, 59, 0.3); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 50%; position: relative; pointer-events: auto; }
+        .joystick-stick { width: 50px; height: 50px; background: rgba(37, 99, 235, 0.8); border: 2px solid #60a5fa; border-radius: 12px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(45deg); box-shadow: 0 0 20px rgba(37, 99, 235, 0.4); }
+        .aim-base { width: 120px; height: 120px; background: rgba(127, 29, 29, 0.1); border: 2px solid rgba(239, 68, 68, 0.2); border-radius: 50%; position: relative; pointer-events: auto; display: flex; align-items: center; justify-content: center; }
+        .aim-center { width: 60px; height: 60px; background: rgba(220, 38, 38, 0.4); border: 3px border-radius: 50%; border: 2px solid rgba(239, 68, 68, 0.6); }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
 
-const getFirebaseServices = () => {
-  try {
-    if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-      const config = JSON.parse(__firebase_config);
-      const app = initializeApp(config);
-      const auth = getAuth(app);
-      const db = getFirestore(app);
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'pc-turbo-v1';
-      return { auth, db, appId, isOnline: true };
-    }
-  } catch (e) { console.error("Firebase Offline"); }
-  return { auth: null, db: null, appId: 'local-only', isOnline: false };
-};
+    <!-- MÀN HÌNH CHÍNH -->
+    <div id="screen-main" class="fixed inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_#1e293b_0%,_#020617_100%)] z-50 p-6">
+        <h1 class="text-5xl font-black italic text-blue-500 mb-2 tracking-tighter text-center">PIXEL COMMANDO</h1>
+        <p class="text-blue-900 font-bold mb-10 text-[10px] tracking-[0.4em]">WEB OPTIMIZED</p>
+        
+        <div class="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 mb-8 w-full max-w-xs text-center backdrop-blur-md">
+            <p class="text-slate-500 text-[10px] font-black uppercase mb-1 tracking-widest">KỶ LỤC CAO NHẤT</p>
+            <p id="high-score-display" class="text-4xl font-black text-yellow-500">0</p>
+        </div>
 
-const fb = getFirebaseServices();
-
-export default function App() {
-  const [view, setView] = useState('main'); 
-  const [user, setUser] = useState(null);
-  const [lang, setLang] = useState('vi');
-  const [highScore, setHighScore] = useState(() => Number(localStorage.getItem('pc_high') || 0));
-  const [username, setUsername] = useState(() => localStorage.getItem('pc_user') || 'COMMANDO');
-  const [leaderboard, setLeaderboard] = useState([]);
-  
-  // HUD States
-  const [hud, setHud] = useState({ score: 0, hp: 100, level: 1 });
-
-  const canvasRef = useRef(null);
-  const requestRef = useRef();
-  const gameState = useRef({
-    active: false, score: 0, level: 1,
-    player: null, enemies: [], bullets: [], particles: [],
-    joystick: { x: 0, y: 0 }, aim: { active: false, angle: 0 },
-    shake: 0, lastFired: 0, frame: 0, lastHudUpdate: 0
-  });
-
-  const t = useMemo(() => ({
-    vi: { play: "TẤN CÔNG", rank: "XẾP HẠNG", set: "HỒ SƠ", high: "KỶ LỤC", save: "LƯU", back: "TRỞ VỀ", exit: "THOÁT" },
-    en: { play: "ASSAULT", rank: "RANKING", set: "PROFILE", high: "BEST", save: "SAVE", back: "BACK", exit: "EXIT" }
-  }), []);
-
-  useEffect(() => {
-    if (!fb.isOnline) return;
-    const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(fb.auth, __initial_auth_token).catch(() => signInAnonymously(fb.auth));
-      } else {
-        await signInAnonymously(fb.auth);
-      }
-    };
-    initAuth();
-    return onAuthStateChanged(fb.auth, (u) => {
-      setUser(u);
-      if (u && fb.db) {
-        getDoc(doc(fb.db, 'artifacts', fb.appId, 'users', u.uid, 'stats', 'profile'))
-          .then(s => { if(s.exists()) setHighScore(s.data().highScore || 0); });
-        onSnapshot(collection(fb.db, 'artifacts', fb.appId, 'public', 'data'), (snap) => {
-          setLeaderboard(snap.docs.map(d => d.data()).sort((a,b) => b.score - a.score).slice(0, 10));
-        });
-      }
-    });
-  }, []);
-
-  const startGame = () => {
-    setHud({ score: 0, hp: 100, level: 1 });
-    setView('game');
-    
-    setTimeout(() => {
-      const cvs = canvasRef.current;
-      if (!cvs) return;
-      cvs.width = window.innerWidth;
-      cvs.height = window.innerHeight;
-      const ctx = cvs.getContext('2d');
-      
-      gameState.current = {
-        active: true, score: 0, level: 1,
-        player: { x: cvs.width/2, y: cvs.height/2, r: 22, hp: 100, speed: 5, angle: 0, recoil: 0 },
-        enemies: [], bullets: [], particles: [],
-        joystick: { x: 0, y: 0 }, aim: { active: false, angle: 0 },
-        shake: 0, lastFired: 0, frame: 0, lastHudUpdate: 0
-      };
-
-      const spawnEnemy = () => {
-        if (!gameState.current.active) return;
-        const g = gameState.current;
-        const ang = Math.random() * Math.PI * 2;
-        const dist = Math.max(cvs.width, cvs.height) * 0.7;
-        // Limit enemies to prevent lag
-        if (g.enemies.length < 25) {
-          g.enemies.push({
-            x: g.player.x + Math.cos(ang) * dist,
-            y: g.player.y + Math.sin(ang) * dist,
-            r: 18 + Math.random() * 10,
-            hp: 1 + Math.floor(g.level / 3),
-            maxHp: 1 + Math.floor(g.level / 3),
-            speed: 2 + (g.level * 0.1),
-            color: `hsl(${Math.random() * 360}, 60%, 50%)`
-          });
-        }
-        setTimeout(spawnEnemy, Math.max(300, 1500 - g.level * 100));
-      };
-      spawnEnemy();
-
-      const gameLoop = () => {
-        if (!gameState.current.active) return;
-        update();
-        draw(ctx);
-        gameState.current.frame++;
-        requestRef.current = requestAnimationFrame(gameLoop);
-      };
-      requestRef.current = requestAnimationFrame(gameLoop);
-    }, 100);
-  };
-
-  const update = () => {
-    const g = gameState.current;
-    const p = g.player;
-    const now = Date.now();
-
-    // Throttle React HUD updates (every 100ms) to prevent UI lag
-    if (now - g.lastHudUpdate > 100) {
-      setHud({ score: g.score, hp: Math.ceil(p.hp), level: g.level });
-      g.lastHudUpdate = now;
-    }
-
-    // Movement
-    p.x += g.joystick.x * p.speed;
-    p.y += g.joystick.y * p.speed;
-    p.x = Math.max(p.r, Math.min(window.innerWidth - p.r, p.x));
-    p.y = Math.max(p.r, Math.min(window.innerHeight - p.r, p.y));
-
-    // Shooting
-    if (g.aim.active && now - g.lastFired > 140) {
-      g.lastFired = now;
-      p.angle = g.aim.angle;
-      p.recoil = 10;
-      g.shake = 3;
-      g.bullets.push({
-        x: p.x + Math.cos(p.angle) * 30, y: p.y + Math.sin(p.angle) * 30,
-        vx: Math.cos(p.angle) * 18, vy: Math.sin(p.angle) * 18,
-        r: 3.5, life: 60
-      });
-    }
-    p.recoil *= 0.8;
-    g.shake *= 0.9;
-
-    // Entities Logic
-    for (let i = g.enemies.length - 1; i >= 0; i--) {
-      const e = g.enemies[i];
-      const dx = p.x - e.x, dy = p.y - e.y;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      
-      e.x += (dx/dist) * e.speed;
-      e.y += (dy/dist) * e.speed;
-
-      if (dist < p.r + e.r) {
-        p.hp -= 0.5;
-        g.shake = 5;
-        if (p.hp <= 0) endGame();
-      }
-
-      for (let j = g.bullets.length - 1; j >= 0; j--) {
-        const b = g.bullets[j];
-        if (Math.abs(b.x - e.x) < e.r && Math.abs(b.y - e.y) < e.r) {
-          e.hp--;
-          g.bullets.splice(j, 1);
-          // Limit particles
-          if (g.particles.length < 50) {
-            for(let k=0; k<3; k++) g.particles.push({
-              x: e.x, y: e.y, vx: (Math.random()-0.5)*8, vy: (Math.random()-0.5)*8,
-              r: 2, life: 1, color: e.color
-            });
-          }
-          if (e.hp <= 0) {
-            g.enemies.splice(i, 1);
-            g.score += 10;
-            if (g.score % 200 === 0) g.level++;
-          }
-          break;
-        }
-      }
-    }
-
-    // Performance-friendly cleanup
-    g.bullets = g.bullets.filter(b => {
-      b.x += b.vx; b.y += b.vy; b.life--;
-      return b.life > 0 && b.x > 0 && b.x < window.innerWidth && b.y > 0 && b.y < window.innerHeight;
-    });
-    g.particles = g.particles.filter(pt => {
-      pt.x += pt.vx; pt.y += pt.vy; pt.life -= 0.04;
-      return pt.life > 0;
-    });
-  };
-
-  const draw = (ctx) => {
-    const g = gameState.current;
-    const p = g.player;
-    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    
-    ctx.save();
-    if (g.shake > 0.5) ctx.translate((Math.random()-0.5)*g.shake, (Math.random()-0.5)*g.shake);
-
-    ctx.fillStyle = '#020617';
-    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-
-    // Grid - Simple static grid to save CPU
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 1;
-    for(let i=0; i<window.innerWidth; i+=100) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, window.innerHeight); ctx.stroke(); }
-    for(let i=0; i<window.innerHeight; i+=100) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(window.innerWidth, i); ctx.stroke(); }
-
-    // Particles
-    g.particles.forEach(pt => {
-      ctx.globalAlpha = pt.life;
-      ctx.fillStyle = pt.color;
-      ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r, 0, 7); ctx.fill();
-    });
-    ctx.globalAlpha = 1;
-
-    // Bullets
-    ctx.fillStyle = '#fbbf24';
-    g.bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, 7); ctx.fill(); });
-
-    // Enemies
-    g.enemies.forEach(e => {
-      ctx.fillStyle = e.color;
-      ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
-      ctx.fillStyle = '#1e293b'; ctx.fillRect(e.x - 12, e.y - e.r - 8, 24, 3);
-      ctx.fillStyle = '#ef4444'; ctx.fillRect(e.x - 12, e.y - e.r - 8, 24 * (e.hp/e.maxHp), 3);
-    });
-
-    // Player
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate(p.angle);
-    ctx.fillStyle = '#475569';
-    ctx.fillRect(15 - p.recoil, 6, 20, 8); // Gun
-    ctx.fillStyle = '#3b82f6';
-    ctx.beginPath(); ctx.roundRect(-18, -18, 36, 36, 8); ctx.fill();
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(6, -8, 8, 16); // Visor
-    ctx.restore();
-    
-    ctx.restore();
-  };
-
-  const endGame = async () => {
-    gameState.current.active = false;
-    cancelAnimationFrame(requestRef.current);
-    const finalScore = gameState.current.score;
-    if (finalScore > highScore) {
-      setHighScore(finalScore);
-      localStorage.setItem('pc_high', finalScore);
-      if (user && fb.db) {
-        const payload = { score: finalScore, username, uid: user.uid, date: Date.now() };
-        await setDoc(doc(fb.db, 'artifacts', fb.appId, 'public', 'data', user.uid), payload).catch(() => {});
-      }
-    }
-    setView('main');
-  };
-
-  return (
-    <div className="h-screen w-screen bg-slate-950 text-white font-sans overflow-hidden select-none touch-none">
-      {view === 'main' && (
-        <div className="h-full flex flex-col items-center justify-center p-8 bg-[radial-gradient(circle_at_center,_#1e293b_0%,_#020617_100%)]">
-          <h1 className="text-5xl font-black italic text-blue-500 mb-2 text-center tracking-tighter">PIXEL COMMANDO</h1>
-          <p className="text-blue-900 font-bold mb-12 text-[10px] tracking-[0.4em]">TURBO PERFORMANCE</p>
-          
-          <div className="bg-slate-900/50 p-6 rounded-3xl border border-slate-800 mb-10 w-full max-w-xs text-center backdrop-blur-md">
-             <p className="text-slate-500 text-[10px] font-black uppercase mb-1 tracking-widest">{t[lang].high}</p>
-             <p className="text-4xl font-black text-yellow-500 tabular-nums">{highScore}</p>
-          </div>
-
-          <div className="w-full max-w-xs space-y-4">
-            <button onClick={startGame} className="w-full bg-blue-600 py-6 rounded-[2rem] font-black text-3xl shadow-xl active:scale-95 transition-all">
-              {t[lang].play}
-            </button>
-            <div className="grid grid-cols-2 gap-4">
-              <button onClick={() => setView('rank')} className="bg-slate-900 py-4 rounded-2xl border border-slate-800 font-bold active:scale-95 transition-all uppercase text-xs">{t[lang].rank}</button>
-              <button onClick={() => setView('profile')} className="bg-slate-900 py-4 rounded-2xl border border-slate-800 font-bold active:scale-95 transition-all uppercase text-xs">ID</button>
+        <div class="w-full max-w-xs space-y-4">
+            <button onclick="startGame()" class="w-full bg-blue-600 py-6 rounded-[2rem] font-black text-3xl shadow-xl active:scale-95 transition-all">TẤN CÔNG</button>
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="showScreen('profile')" class="bg-slate-900 py-4 rounded-2xl border border-slate-800 font-bold text-xs uppercase">HỒ SƠ</button>
+                <button onclick="window.location.reload()" class="bg-slate-900 py-4 rounded-2xl border border-slate-800 font-bold text-xs uppercase">TẢI LẠI</button>
             </div>
-          </div>
         </div>
-      )}
-
-      {view === 'rank' && (
-        <div className="h-full flex flex-col p-8 bg-slate-950">
-          <button onClick={() => setView('main')} className="mb-8 self-start text-slate-500 font-bold uppercase text-xs tracking-widest">← {t[lang].back}</button>
-          <h2 className="text-2xl font-black mb-8 italic text-blue-500">BẢNG XẾP HẠNG</h2>
-          <div className="flex-1 overflow-y-auto space-y-3">
-            {leaderboard.map((l, i) => (
-              <div key={i} className={`flex justify-between p-4 rounded-2xl border ${l.uid === user?.uid ? 'border-blue-500 bg-blue-600/10' : 'border-slate-800 bg-slate-900/30'}`}>
-                <span className="font-bold">{i+1}. {l.username}</span>
-                <span className="text-blue-400 font-black tabular-nums">{l.score}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {view === 'profile' && (
-        <div className="h-full flex flex-col p-8 bg-slate-950 items-center">
-          <button onClick={() => setView('main')} className="mb-12 self-start text-slate-500 font-bold text-xs">← {t[lang].back}</button>
-          <h2 className="text-2xl font-black mb-12 italic text-blue-500">HỒ SƠ</h2>
-          <input className="w-full max-w-xs bg-slate-900 p-5 rounded-2xl border border-slate-800 outline-none font-black text-center text-xl uppercase" 
-            maxLength={12} value={username} onChange={e=>setUsername(e.target.value)} />
-          <button onClick={()=>{ localStorage.setItem('pc_user', username); setView('main'); }} className="mt-8 w-full max-w-xs bg-blue-600 py-5 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all">LƯU TÊN</button>
-        </div>
-      )}
-
-      {view === 'game' && (
-        <div className="h-full w-full relative overflow-hidden">
-          <canvas ref={canvasRef} className="h-full w-full block" />
-          
-          <div className="absolute inset-0 pointer-events-none p-6 flex flex-col justify-between">
-            <div className="flex justify-between items-start">
-              <div className="bg-slate-950/80 backdrop-blur-md p-4 rounded-2xl border border-white/5 shadow-xl">
-                <div className="w-32 h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
-                  <div className="h-full bg-red-500 transition-all duration-100" style={{width: `${hud.hp}%`}}></div>
-                </div>
-                <div className="flex justify-between items-center px-1">
-                  <span className="text-xl font-black italic text-blue-400 tabular-nums">{hud.score}</span>
-                  <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">LVL {hud.level}</span>
-                </div>
-              </div>
-              <button onClick={() => endGame()} className="bg-red-500/10 px-4 py-2 rounded-xl border border-red-500/20 font-black text-red-500 pointer-events-auto active:bg-red-600 active:text-white transition-all text-[10px] tracking-widest">{t[lang].exit}</button>
-            </div>
-
-            <div className="flex justify-between items-end mb-8 px-2">
-              {/* JOYSTICK DI CHUYỂN */}
-              <div className="w-32 h-32 bg-slate-900/30 rounded-full relative pointer-events-auto border border-white/10" 
-                onTouchStart={e=>{ const r=e.currentTarget.getBoundingClientRect(); const t=e.touches[0]; const dx=t.clientX-(r.left+64), dy=t.clientY-(r.top+64); const d=Math.min(48,Math.hypot(dx,dy)), a=Math.atan2(dy,dx); gameState.current.joystick={x:(Math.cos(a)*d)/48, y:(Math.sin(a)*d)/48}; }}
-                onTouchMove={e=>{ const r=e.currentTarget.getBoundingClientRect(); const t=e.touches[0]; const dx=t.clientX-(r.left+64), dy=t.clientY-(r.top+64); const d=Math.min(48,Math.hypot(dx,dy)), a=Math.atan2(dy,dx); gameState.current.joystick={x:(Math.cos(a)*d)/48, y:(Math.sin(a)*d)/48}; }}
-                onTouchEnd={()=>gameState.current.joystick={x:0,y:0}}>
-                <div className="absolute w-12 h-12 bg-blue-600/80 rounded-xl top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border border-blue-400" 
-                     style={{transform: `translate(calc(-50% + ${gameState.current.joystick.x*40}px), calc(-50% + ${gameState.current.joystick.y*40}px)) rotate(45deg)`}}></div>
-              </div>
-
-              {/* JOYSTICK NGẮM BẮN */}
-              <div className="w-32 h-32 bg-red-900/5 rounded-full relative pointer-events-auto border border-red-500/10"
-                onTouchStart={e=>{ const r=e.currentTarget.getBoundingClientRect(); const t=e.touches[0]; const dx=t.clientX-(r.left+64), dy=t.clientY-(r.top+64); gameState.current.aim={active:true, angle:Math.atan2(dy,dx)}; }}
-                onTouchMove={e=>{ const r=e.currentTarget.getBoundingClientRect(); const t=e.touches[0]; const dx=t.clientX-(r.left+64), dy=t.clientY-(r.top+64); gameState.current.aim={active:true, angle:Math.atan2(dy,dx)}; }}
-                onTouchEnd={()=>gameState.current.aim.active=false}>
-                <div className="absolute w-16 h-16 bg-red-600/30 rounded-full top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-2 border-red-500/50 flex items-center justify-center active:scale-90 transition-transform">
-                  <div className="w-1 h-1 bg-white rounded-full"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
-  );
-}
+
+    <!-- MÀN HÌNH HỒ SƠ -->
+    <div id="screen-profile" class="fixed inset-0 bg-slate-950 flex flex-col items-center p-8 z-50 hidden">
+        <button onclick="showScreen('main')" class="mb-12 self-start text-slate-500 font-bold text-xs">← TRỞ VỀ</button>
+        <h2 class="text-2xl font-black mb-12 italic text-blue-500">HỒ SƠ CHIẾN BINH</h2>
+        <input id="username-input" class="w-full max-w-xs bg-slate-900 p-5 rounded-2xl border border-slate-800 outline-none font-black text-center text-xl uppercase text-white" maxLength="12" placeholder="TÊN CHIẾN BINH">
+        <button onclick="saveProfile()" class="mt-8 w-full max-w-xs bg-blue-600 py-5 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-all">LƯU THÔNG TIN</button>
+    </div>
+
+    <!-- GIAO DIỆN TRONG GAME -->
+    <div id="game-ui" class="fixed inset-0 pointer-events-none p-6 flex flex-col justify-between hidden z-40">
+        <div class="flex justify-between items-start">
+            <div class="bg-slate-950/80 backdrop-blur-md p-4 rounded-2xl border border-white/5 shadow-xl">
+                <div class="w-32 h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
+                    <div id="hp-bar" class="h-full bg-red-500 transition-all duration-100" style="width: 100%"></div>
+                </div>
+                <div class="flex justify-between items-center px-1">
+                    <span id="score-display" class="text-xl font-black italic text-blue-400">0</span>
+                    <span id="level-display" class="text-[9px] font-black text-slate-500 uppercase tracking-tighter">LVL 1</span>
+                </div>
+            </div>
+            <button onclick="endGame()" class="bg-red-500/10 px-4 py-2 rounded-xl border border-red-500/20 font-black text-red-500 pointer-events-auto active:bg-red-600 active:text-white transition-all text-[10px] tracking-widest">THOÁT</button>
+        </div>
+
+        <div class="flex justify-between items-end mb-8 px-2">
+            <!-- JoyStick Move -->
+            <div id="joy-move" class="joystick-base">
+                <div id="stick-move" class="joystick-stick"></div>
+            </div>
+            <!-- JoyStick Aim -->
+            <div id="joy-aim" class="aim-base">
+                <div class="aim-center"></div>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        let gameState = {
+            active: false,
+            score: 0,
+            level: 1,
+            player: { x: 0, y: 0, r: 22, hp: 100, speed: 5, angle: 0, recoil: 0 },
+            enemies: [],
+            bullets: [],
+            particles: [],
+            shake: 0,
+            frame: 0,
+            lastFired: 0,
+            joystick: { x: 0, y: 0 },
+            aim: { active: false, angle: 0 }
+        };
+
+        let highScore = localStorage.getItem('pc_high') || 0;
+        let username = localStorage.getItem('pc_user') || 'COMMANDO';
+        document.getElementById('high-score-display').innerText = highScore;
+        document.getElementById('username-input').value = username;
+
+        function showScreen(screen) {
+            document.getElementById('screen-main').classList.add('hidden');
+            document.getElementById('screen-profile').classList.add('hidden');
+            document.getElementById('game-ui').classList.add('hidden');
+            if(screen === 'main') document.getElementById('screen-main').classList.remove('hidden');
+            if(screen === 'profile') document.getElementById('screen-profile').classList.remove('hidden');
+            if(screen === 'game') document.getElementById('game-ui').classList.remove('hidden');
+        }
+
+        function saveProfile() {
+            username = document.getElementById('username-input').value.toUpperCase() || 'COMMANDO';
+            localStorage.setItem('pc_user', username);
+            showScreen('main');
+        }
+
+        function startGame() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            gameState = {
+                active: true,
+                score: 0,
+                level: 1,
+                player: { x: canvas.width/2, y: canvas.height/2, r: 22, hp: 100, speed: 5, angle: 0, recoil: 0 },
+                enemies: [],
+                bullets: [],
+                particles: [],
+                shake: 0,
+                frame: 0,
+                lastFired: 0,
+                joystick: { x: 0, y: 0 },
+                aim: { active: false, angle: 0 }
+            };
+            
+            showScreen('game');
+            spawnManager();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function spawnManager() {
+            if(!gameState.active) return;
+            if(gameState.enemies.length < 20 + gameState.level) {
+                const ang = Math.random() * Math.PI * 2;
+                const dist = Math.max(canvas.width, canvas.height) * 0.6;
+                gameState.enemies.push({
+                    x: gameState.player.x + Math.cos(ang) * dist,
+                    y: gameState.player.y + Math.sin(ang) * dist,
+                    r: 18 + Math.random() * 8,
+                    hp: 1 + Math.floor(gameState.level/3),
+                    maxHp: 1 + Math.floor(gameState.level/3),
+                    speed: 1.5 + (gameState.level * 0.15),
+                    color: `hsl(${Math.random() * 360}, 70%, 50%)`
+                });
+            }
+            setTimeout(spawnManager, Math.max(400, 1500 - gameState.level * 100));
+        }
+
+        function update() {
+            const g = gameState;
+            const p = g.player;
+
+            // Di chuyển
+            p.x += g.joystick.x * p.speed;
+            p.y += g.joystick.y * p.speed;
+            p.x = Math.max(p.r, Math.min(canvas.width - p.r, p.x));
+            p.y = Math.max(p.r, Math.min(canvas.height - p.r, p.y));
+
+            // Bắn súng
+            const now = Date.now();
+            if(g.aim.active && now - g.lastFired > 130) {
+                g.lastFired = now;
+                p.angle = g.aim.angle;
+                p.recoil = 12;
+                g.shake = 3;
+                g.bullets.push({
+                    x: p.x + Math.cos(p.angle)*30, y: p.y + Math.sin(p.angle)*30,
+                    vx: Math.cos(p.angle)*15, vy: Math.sin(p.angle)*15, life: 60
+                });
+            }
+            p.recoil *= 0.8;
+            g.shake *= 0.9;
+
+            // Xử lý quái
+            for(let i=g.enemies.length-1; i>=0; i--) {
+                const e = g.enemies[i];
+                const dx = p.x - e.x, dy = p.y - e.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                e.x += (dx/dist) * e.speed;
+                e.y += (dy/dist) * e.speed;
+
+                if(dist < p.r + e.r) {
+                    p.hp -= 0.4;
+                    g.shake = 5;
+                    if(p.hp <= 0) endGame();
+                }
+
+                for(let j=g.bullets.length-1; j>=0; j--) {
+                    const b = g.bullets[j];
+                    if(Math.hypot(b.x - e.x, b.y - e.y) < e.r + 5) {
+                        e.hp--;
+                        g.bullets.splice(j, 1);
+                        if(e.hp <= 0) {
+                            g.score += 10;
+                            if(g.score % 200 === 0) g.level++;
+                            g.enemies.splice(i, 1);
+                            // Thêm hạt nổ
+                            for(let k=0; k<5; k++) g.particles.push({
+                                x: e.x, y: e.y, vx: (Math.random()-0.5)*10, vy: (Math.random()-0.5)*10,
+                                r: 3, life: 1, color: e.color
+                            });
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Cleanup
+            g.bullets = g.bullets.filter(b => {
+                b.x += b.vx; b.y += b.vy; b.life--;
+                return b.life > 0;
+            });
+            g.particles = g.particles.filter(pt => {
+                pt.x += pt.vx; pt.y += pt.vy; pt.life -= 0.04;
+                return pt.life > 0;
+            });
+
+            // Update UI
+            if(g.frame % 5 === 0) {
+                document.getElementById('score-display').innerText = g.score;
+                document.getElementById('hp-bar').style.width = p.hp + '%';
+                document.getElementById('level-display').innerText = 'LVL ' + g.level;
+            }
+        }
+
+        function draw() {
+            const g = gameState;
+            const p = g.player;
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            ctx.save();
+            if(g.shake > 0.5) ctx.translate((Math.random()-0.5)*g.shake, (Math.random()-0.5)*g.shake);
+            
+            // BG
+            ctx.fillStyle = '#020617';
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+
+            // Particles
+            g.particles.forEach(pt => {
+                ctx.globalAlpha = pt.life;
+                ctx.fillStyle = pt.color;
+                ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r, 0, 7); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Bullets
+            ctx.fillStyle = '#fbbf24';
+            g.bullets.forEach(b => { ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, 7); ctx.fill(); });
+
+            // Enemies
+            g.enemies.forEach(e => {
+                ctx.fillStyle = e.color;
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.r, 0, 7); ctx.fill();
+                ctx.fillStyle = '#1e293b'; ctx.fillRect(e.x - 12, e.y - e.r - 8, 24, 3);
+                ctx.fillStyle = '#ef4444'; ctx.fillRect(e.x - 12, e.y - e.r - 8, 24 * (e.hp/e.maxHp), 3);
+            });
+
+            // Player
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.angle);
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(15 - p.recoil, 6, 20, 8); // Súng
+            ctx.fillStyle = '#3b82f6';
+            ctx.beginPath(); ctx.roundRect(-18, -18, 36, 36, 8); ctx.fill();
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(6, -8, 8, 16); // Kính
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        function gameLoop() {
+            if(!gameState.active) return;
+            update();
+            draw();
+            gameState.frame++;
+            requestAnimationFrame(gameLoop);
+        }
+
+        function endGame() {
+            gameState.active = false;
+            if(gameState.score > highScore) {
+                highScore = gameState.score;
+                localStorage.setItem('pc_high', highScore);
+                document.getElementById('high-score-display').innerText = highScore;
+            }
+            showScreen('main');
+        }
+
+        // --- CONTROLS ---
+        const moveJoy = document.getElementById('joy-move');
+        const moveStick = document.getElementById('stick-move');
+        const aimJoy = document.getElementById('joy-aim');
+
+        function handleMove(e) {
+            const touch = e.touches[0];
+            const rect = moveJoy.getBoundingClientRect();
+            const centerX = rect.left + 60, centerY = rect.top + 60;
+            const dx = touch.clientX - centerX, dy = touch.clientY - centerY;
+            const dist = Math.min(45, Math.hypot(dx, dy));
+            const ang = Math.atan2(dy, dx);
+            gameState.joystick = { x: (Math.cos(ang)*dist)/45, y: (Math.sin(ang)*dist)/45 };
+            moveStick.style.transform = `translate(calc(-50% + ${Math.cos(ang)*dist}px), calc(-50% + ${Math.sin(ang)*dist}px)) rotate(45deg)`;
+        }
+
+        moveJoy.addEventListener('touchstart', (e) => { e.preventDefault(); handleMove(e); });
+        moveJoy.addEventListener('touchmove', (e) => { e.preventDefault(); handleMove(e); });
+        moveJoy.addEventListener('touchend', () => { 
+            gameState.joystick = {x:0, y:0}; 
+            moveStick.style.transform = `translate(-50%, -50%) rotate(45deg)`;
+        });
+
+        function handleAim(e) {
+            const touch = Array.from(e.touches).find(t => t.target.closest('#joy-aim'));
+            if(!touch) return;
+            const rect = aimJoy.getBoundingClientRect();
+            const dx = touch.clientX - (rect.left + 60), dy = touch.clientY - (rect.top + 60);
+            gameState.aim = { active: true, angle: Math.atan2(dy, dx) };
+        }
+
+        aimJoy.addEventListener('touchstart', (e) => { e.preventDefault(); handleAim(e); });
+        aimJoy.addEventListener('touchmove', (e) => { e.preventDefault(); handleAim(e); });
+        aimJoy.addEventListener('touchend', () => { gameState.aim.active = false; });
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
 
 ```
 
