@@ -1,1917 +1,576 @@
-import { useState, useEffect, useRef } from 'react';
-import Peer, { DataConnection } from 'peerjs';
-import {
-  createInitialState,
-  createPuzzleState,
-  makeMove,
-  getLegalMovesForPosition,
-  findBestMoveAI,
-  evaluateBoard,
-  GameState,
-  Position,
-  Move,
-  PieceColor
-} from './chessEngine';
-import { ChessPiece } from './components/ChessPiece';
-import { EvalBar } from './components/EvalBar';
-import { AnalysisPanel } from './components/AnalysisPanel';
-import {
-  ONLINE_OPPONENTS,
-  CHESS_LESSONS,
-  LIVE_STREAMERS,
-  OnlineOpponent,
-  Lesson
-} from './utils/chessDotComData';
-import {
-  playMoveSound,
-  playCaptureSound,
-  playCheckSound,
-  playVictorySound
-} from './utils/sounds';
-import {
-  Trophy,
-  RotateCcw,
-  Cpu,
-  Volume2,
-  VolumeX,
-  Sparkles,
-  RefreshCw,
-  Eye,
-  AlertTriangle,
-  Search,
-  MessageSquare,
-  BookOpen,
-  Tv,
-  Award,
-  Clock,
-  Send,
-  UserCheck,
-  Zap,
-  Globe,
-  Copy,
-  Check as CheckIcon,
-  Wifi,
-  Users
-} from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Heart, Flame, Gem, Star, Lock, Check, X, Volume2, Trophy, Home, RotateCcw, Sparkles, LogIn, UserPlus, Mail, ShieldAlert, Award, User } from 'lucide-react';
 
-export default function App() {
-  // Navigation Sidebar active tab
-  // 'play_online' | 'remote_p2p' | 'lessons' | 'puzzle_rush' | 'vs_computer' | 'streamers' | 'analysis'
-  const [activeTab, setActiveTab] = useState<'play_online' | 'remote_p2p' | 'lessons' | 'puzzle_rush' | 'vs_computer' | 'streamers' | 'analysis'>('play_online');
+/* ---------------------------------------------------------
+   CẤU HÌNH MÀU SẮC & DỮ LIỆU GỐC
+--------------------------------------------------------- */
+const C = {
+  bg: '#F5F3FC',
+  ink: '#231A3D',
+  inkSoft: '#5B5279',
+  primary: '#6C5CE7',
+  primaryDark: '#5240C4',
+  primarySoft: '#E8E4FB',
+  coral: '#FF6B5B',
+  coralSoft: '#FFE3DF',
+  gold: '#FFB800',
+  goldSoft: '#FFF2CC',
+  success: '#31B872',
+  successSoft: '#DEF7E9',
+  error: '#FF5A5F',
+  errorSoft: '#FFE2E3',
+  surface: '#FFFFFF',
+  border: '#E4DFF6',
+};
 
-  // Player personal profile metrics
-  const [playerUsername, setPlayerUsername] = useState('Vietnamese_Challenger');
-  const [playerRating, setPlayerRating] = useState(1500);
-  const [playerWins, setPlayerWins] = useState(14);
-  const [playerLosses, setPlayerLosses] = useState(8);
+const LEVEL_META = {
+  basic: { label: 'CƠ BẢN', color: C.primary },
+  intermediate: { label: 'TRUNG CẤP', color: C.coral },
+  advanced: { label: 'NÂNG CAO', color: '#B98900' },
+};
 
-  // Core Game State
-  const [gameState, setGameState] = useState<GameState>(createInitialState());
-  const [gameMode, setGameMode] = useState<'online_simulation' | 'remote_p2p' | 'pve' | 'pvp' | 'lesson' | 'puzzle_rush'>('online_simulation');
-  const [playerColor, setPlayerColor] = useState<PieceColor>('w'); // default user plays white
-  const [aiDifficulty, setAiDifficulty] = useState<'beginner' | 'intermediate' | 'expert'>('intermediate');
-  const [isAiThinking, setIsAiThinking] = useState(false);
+const UNITS = [
+  {
+    id: 1, level: 'basic', title: 'Chào hỏi', icon: '👋',
+    exercises: [
+      { type: 'mc', prompt: 'Từ "Xin chào" trong tiếng Anh là gì?', options: ['Hello', 'Goodbye', 'Please', 'Sorry'], answer: 'Hello' },
+      { type: 'word_order', prompt: 'Sắp xếp thành câu đúng nghĩa: "Tôi tên là John"', words: ['My', 'name', 'is', 'John'], answer: ['My', 'name', 'is', 'John'] },
+      { type: 'fill_blank', prompt: 'Điền vào chỗ trống', template: 'How ___ you?', options: ['are', 'is', 'am', 'be'], answer: 'are' },
+      { type: 'listening', prompt: 'Nghe và chọn nghĩa đúng', audioText: 'Goodbye', options: ['Tạm biệt', 'Xin chào', 'Cảm ơn', 'Xin lỗi'], answer: 'Tạm biệt' },
+      { type: 'mc', prompt: 'Từ "Cảm ơn" trong tiếng Anh là gì?', options: ['Thank you', 'Sorry', 'Please', 'Yes'], answer: 'Thank you' },
+    ],
+  },
+  {
+    id: 2, level: 'basic', title: 'Gia đình & Số đếm', icon: '👪',
+    exercises: [
+      { type: 'mc', prompt: 'Từ "Mẹ" trong tiếng Anh là gì?', options: ['Mother', 'Father', 'Sister', 'Brother'], answer: 'Mother' },
+      { type: 'word_order', prompt: 'Sắp xếp: "Đây là bố tôi"', words: ['This', 'is', 'my', 'father'], answer: ['This', 'is', 'my', 'father'] },
+      { type: 'fill_blank', prompt: 'Điền vào chỗ trống', template: 'I have two ___.', options: ['children', 'child', 'childs', 'childrens'], answer: 'children' },
+      { type: 'listening', prompt: 'Nghe và chọn nghĩa đúng', audioText: 'Sister', options: ['Chị/em gái', 'Anh/em trai', 'Bà', 'Ông'], answer: 'Chị/em gái' },
+      { type: 'mc', prompt: 'Số "7" trong tiếng Anh là gì?', options: ['Seven', 'Six', 'Eight', 'Nine'], answer: 'Seven' },
+    ],
+  }
+];
 
-  // Simulated Online Matchmaking States
-  const [isSearchingOnline, setIsSearchingOnline] = useState(false);
-  const [currentOpponent, setCurrentOpponent] = useState<OnlineOpponent | null>(null);
-  const [timeControl, setTimeControl] = useState<'bullet' | 'blitz' | 'rapid'>('blitz'); // seconds per player
-  const [whiteTimeLeft, setWhiteTimeLeft] = useState<number>(180);
-  const [blackTimeLeft, setBlackTimeLeft] = useState<number>(180);
-  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
-  const [timeoutWinner, setTimeoutWinner] = useState<PieceColor | null>(null);
+// Dữ liệu bảng xếp hạng giả lập ban đầu
+const INITIAL_LEADERBOARD = [
+  { name: 'Nguyễn Văn A', xp: 450, avatar: '🦊', isCurrentUser: false },
+  { name: 'Trần Thị B', xp: 320, avatar: '🐱', isCurrentUser: false },
+  { name: 'Alex Tuan', xp: 280, avatar: '🐼', isCurrentUser: false },
+  { name: 'Hoàng Minh', xp: 150, avatar: '🦁', isCurrentUser: false },
+  { name: 'Linh Chi', xp: 90, avatar: '🐰', isCurrentUser: false },
+];
 
-  // REAL REMOTE P2P WEBRTC CONNECTION STATES (PeerJS)
-  const [peerInstance, setPeerInstance] = useState<Peer | null>(null);
-  const [myPeerId, setMyPeerId] = useState<string>('');
-  const [friendPeerIdInput, setFriendPeerIdInput] = useState<string>('');
-  const [p2pConnection, setP2pConnection] = useState<DataConnection | null>(null);
-  const [p2pStatus, setP2pStatus] = useState<'idle' | 'generating' | 'ready_host' | 'connecting' | 'connected'>('idle');
-  const [p2pError, setP2pError] = useState<string>('');
-  const [copiedAlert, setCopiedAlert] = useState(false);
-  const [remoteOpponentName, setRemoteOpponentName] = useState('Người chơi từ xa');
+function shuffle(arr) {
+  return [...arr].map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+}
 
-  // Live Chat System
-  const [chatMessages, setChatMessages] = useState<{ sender: string; text: string; time: string }[]>([]);
-  const [customInputMessage, setCustomInputMessage] = useState('');
-  const chatEndRef = useRef<HTMLDivElement>(null);
+function speak(text) {
+  try {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'en-US';
+      u.rate = 0.88;
+      window.speechSynthesis.speak(u);
+    }
+  } catch (e) {}
+}
 
-  // Interactive Lesson States
-  const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
-  const [lessonMoveIndex, setLessonMoveIndex] = useState(0);
-  const [lessonFeedback, setLessonFeedback] = useState<string>('Hãy đọc hướng dẫn bên dưới và di chuyển quân cho đúng.');
+function shadeColor(hex) {
+  const map = { [C.primary]: '#5240C4', [C.coral]: '#E14F42', '#B98900': '#8F6C00' };
+  return map[hex] || '#4A3FB8';
+}
 
-  // Puzzle Rush States
-  const [puzzleRushScore, setPuzzleRushScore] = useState(0);
-  const [puzzleRushStrikes, setPuzzleRushStrikes] = useState(0);
-  const [currentRushType, setCurrentRushType] = useState<'mateIn1' | 'mateIn2' | 'endgame'>('mateIn1');
+/* ---------------------------------------------------------
+   MAIN COMPONENT
+--------------------------------------------------------- */
+export default function EnLingoApp() {
+  // Quản lý Đăng nhập & Auth
+  const [user, setUser] = useState(null); // { email: string, name: string, xp: number, streak: number }
+  const [authTab, setAuthTab] = useState('login'); // login | register
+  const [emailInput, setEmailInput] = useState('');
+  const [nameInput, setNameInput] = useState('');
 
-  // Interaction temporary selection states
-  const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
-  const [legalMovesForSelected, setLegalMovesForSelected] = useState<Move[]>([]);
-  const [promotionPendingMoves, setPromotionPendingMoves] = useState<Move[] | null>(null);
-  const [activeHint, setActiveHint] = useState<Move | null>(null);
+  // Điều hướng chính (chỉ hiện khi đã đăng nhập)
+  const [mainTab, setMainTab] = useState('learn'); // learn | leaderboard
 
-  // Customization viewing states
-  const [boardTheme, setBoardTheme] = useState<'classic' | 'emerald' | 'velvet' | 'obsidian'>('emerald'); // default green like chess.com
-  const [pieceTheme, setPieceTheme] = useState<'modern' | 'minimal' | 'royal'>('modern');
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [soundMuted, setSoundMuted] = useState(false);
-  const [viewingSnapshotIndex, setViewingSnapshotIndex] = useState<number | null>(null);
+  // Trạng thái bài học
+  const [screen, setScreen] = useState('path'); // path | lesson | complete | gameover
+  const [activeUnit, setActiveUnit] = useState(null);
+  const [completedUnits, setCompletedUnits] = useState(new Set());
+  const [hearts, setHearts] = useState(5);
+  const [exIndex, setExIndex] = useState(0);
+  const [lessonXp, setLessonXp] = useState(0);
+  const [feedback, setFeedback] = useState(null); 
+  const [selected, setSelected] = useState(null);
+  const [chosen, setChosen] = useState([]);
+  const [pool, setPool] = useState([]);
+  const [optionsPool, setOptionsPool] = useState([]);
 
-  // Scroll chat down automatically
+  // Bảng xếp hạng động
+  const [leaderboard, setLeaderboard] = useState(INITIAL_LEADERBOARD);
+
+  const unit = activeUnit !== null ? UNITS[activeUnit] : null;
+  const exercise = unit ? unit.exercises[exIndex] : null;
+
+  // Cập nhật bảng xếp hạng mỗi khi XP của user thay đổi
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+    if (!user) return;
+    const currentLeaderboard = INITIAL_LEADERBOARD.filter(player => player.name !== user.name);
+    const updated = [
+      ...currentLeaderboard,
+      { name: user.name, xp: user.xp, avatar: '👤', isCurrentUser: true }
+    ].sort((a, b) => b.xp - a.xp);
+    setLeaderboard(updated);
+  }, [user]);
 
-  // Handle ticking clocks for Online matches
   useEffect(() => {
-    let interval: any = null;
-
-    const isGameOver = gameState.isCheckmate || gameState.isStalemate || timeoutWinner !== null;
-
-    if (isTimerActive && !isGameOver && viewingSnapshotIndex === null && (gameMode === 'online_simulation' || gameMode === 'remote_p2p')) {
-      interval = setInterval(() => {
-        if (gameState.turn === 'w') {
-          setWhiteTimeLeft(prev => {
-            if (prev <= 1) {
-              setIsTimerActive(false);
-              setTimeoutWinner('b'); // Black wins on time
-              playVictorySound(soundMuted);
-              appendChatAlert('⏰ Hết giờ! Đen thắng do Trắng hết thời gian.');
-              if (gameMode === 'online_simulation') {
-                setPlayerLosses(l => l + 1);
-                setPlayerRating(r => r - 12);
-              }
-              return 0;
-            }
-            return prev - 1;
-          });
-        } else {
-          setBlackTimeLeft(prev => {
-            if (prev <= 1) {
-              setIsTimerActive(false);
-              setTimeoutWinner('w'); // White wins on time
-              playVictorySound(soundMuted);
-              appendChatAlert('⏰ Hết giờ! Trắng thắng do Đen hết thời gian.');
-              if (gameMode === 'online_simulation') {
-                setPlayerWins(w => w + 1);
-                setPlayerRating(r => r + 14);
-              }
-              return 0;
-            }
-            return prev - 1;
-          });
-        }
-      }, 1000);
-    }
-
-    return () => clearInterval(interval);
-  }, [isTimerActive, gameState.turn, gameState.isCheckmate, gameState.isStalemate, timeoutWinner, viewingSnapshotIndex, gameMode, soundMuted]);
-
-  // Determine initial time limit based on selected control
-  const getInitialSeconds = (ctrl: 'bullet' | 'blitz' | 'rapid') => {
-    switch (ctrl) {
-      case 'bullet': return 60; // 1 min
-      case 'blitz': return 180; // 3 mins
-      case 'rapid': return 600; // 10 mins
-    }
-  };
-
-  // Append customized automated chat message helper
-  const appendChatAlert = (text: string, sender: string = 'Hệ thống') => {
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    setChatMessages(prev => [...prev, { sender, text, time: timeStr }]);
-  };
-
-  // ============================================================================
-  // PEERJS REMOTE P2P MULTIPLAYER IMPLEMENTATION
-  // ============================================================================
-  
-  // Setup remote data reception handler
-  const attachConnectionHandlers = (conn: DataConnection, assignedRole: 'host' | 'client') => {
-    conn.on('open', () => {
-      setP2pStatus('connected');
-      setP2pConnection(conn);
-      setGameMode('remote_p2p');
-      setIsTimerActive(true);
-      setTimeoutWinner(null);
-      setViewingSnapshotIndex(null);
-
-      // Host plays white, Client plays black
-      if (assignedRole === 'host') {
-        setPlayerColor('w');
-        setIsFlipped(false);
-        appendChatAlert('🌐 Đã kết nối thành công với Bạn Bè! Bạn cầm quân TRẮNG.', 'Hệ thống P2P');
-        // Send initial greeting + name
-        conn.send({ type: 'handshake', username: playerUsername });
-      } else {
-        setPlayerColor('b');
-        setIsFlipped(true);
-        appendChatAlert('🌐 Đã vào phòng thành công! Bạn cầm quân ĐEN.', 'Hệ thống P2P');
-        conn.send({ type: 'handshake', username: playerUsername });
-      }
-
-      playVictorySound(soundMuted);
-    });
-
-    conn.on('data', (data: any) => {
-      if (!data) return;
-
-      // Handle handshake username transfer
-      if (data.type === 'handshake') {
-        if (data.username) setRemoteOpponentName(data.username);
-        return;
-      }
-
-      // Handle raw chat messages
-      if (data.type === 'chat') {
-        appendChatAlert(data.text, data.sender || 'Đối thủ từ xa');
-        return;
-      }
-
-      // Handle standard algebraic move commit
-      if (data.type === 'move') {
-        const receivedMoveSan = data.san;
-        // Search current legal moves to find matching SAN move
-        // Need temp state to evaluate
-        setGameState(currentState => {
-          const allPossibles = [];
-          for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
-              const p = currentState.board[r][c];
-              if (p && p.color === currentState.turn) {
-                allPossibles.push(...getLegalMovesForPosition(currentState, { row: r, col: c }));
-              }
-            }
-          }
-
-          const matchedMove = allPossibles.find(m => m.san === receivedMoveSan);
-          if (matchedMove) {
-            const next = makeMove(currentState, matchedMove);
-            const isCap = !!matchedMove.captured || matchedMove.isEnPassant;
-
-            // Audio triggers
-            if (next.isCheckmate) playVictorySound(soundMuted);
-            else if (next.isCheck) playCheckSound(soundMuted);
-            else if (isCap) playCaptureSound(soundMuted);
-            else playMoveSound(soundMuted);
-
-            return next;
-          }
-          return currentState;
-        });
-      }
-    });
-
-    conn.on('error', (err) => {
-      setP2pError(`Lỗi kết nối từ xa: ${err.message || 'Ngắt kết nối'}`);
-      setP2pStatus('idle');
-    });
-
-    conn.on('close', () => {
-      appendChatAlert('⚠️ Đối thủ từ xa đã ngắt kết nối.', 'Hệ thống P2P');
-      setP2pStatus('idle');
-    });
-  };
-
-  // 1. User generates a custom room ID
-  const handleCreateRemoteRoom = () => {
-    setP2pStatus('generating');
-    setP2pError('');
-    
-    // Generate an elegant memorable 4-digit numeric code for Peer connection prefix
-    const randomSuffix = Math.floor(1000 + Math.random() * 9000).toString();
-    const customId = `chess-vn-${randomSuffix}`;
-
-    const newPeer = new Peer(customId, {
-      debug: 1
-    });
-
-    newPeer.on('open', (id) => {
-      setMyPeerId(id);
-      setP2pStatus('ready_host');
-      setPeerInstance(newPeer);
-      
-      // Initialize full match board
-      const secs = getInitialSeconds(timeControl);
-      setWhiteTimeLeft(secs);
-      setBlackTimeLeft(secs);
-      setGameState(createInitialState());
-    });
-
-    // Listen for friend joining us
-    newPeer.on('connection', (incomingConn) => {
-      setP2pConnection(incomingConn);
-      attachConnectionHandlers(incomingConn, 'host');
-    });
-
-    newPeer.on('error', (err) => {
-      setP2pError(`Không thể tạo phòng: ${err.message}. Có thể do tường lửa hoặc mạng LAN.`);
-      setP2pStatus('idle');
-    });
-  };
-
-  // 2. User enters friend's code to join their room
-  const handleJoinRemoteRoom = () => {
-    const trimmedCode = friendPeerIdInput.trim();
-    if (!trimmedCode) {
-      setP2pError('Vui lòng nhập Mã Phòng hợp lệ.');
-      return;
-    }
-
-    setP2pStatus('connecting');
-    setP2pError('');
-
-    // Prepend prefix if user just typed the 4 digits
-    let fullTargetId = trimmedCode;
-    if (/^\d{4}$/.test(trimmedCode)) {
-      fullTargetId = `chess-vn-${trimmedCode}`;
-    }
-
-    // Initialize clean local peer
-    const tempPeer = new Peer({ debug: 1 });
-    
-    tempPeer.on('open', () => {
-      setPeerInstance(tempPeer);
-      const outgoingConn = tempPeer.connect(fullTargetId, { reliable: true });
-      setP2pConnection(outgoingConn);
-      attachConnectionHandlers(outgoingConn, 'client');
-
-      // Initialize match board locally
-      const secs = getInitialSeconds(timeControl);
-      setWhiteTimeLeft(secs);
-      setBlackTimeLeft(secs);
-      setGameState(createInitialState());
-    });
-
-    tempPeer.on('error', (err) => {
-      setP2pError(`Lỗi kết nối tới bạn bè: ${err.message}. Hãy kiểm tra lại mã phòng.`);
-      setP2pStatus('idle');
-    });
-  };
-
-  // Manual fallback string synchronize (PBEM/Clipboard) if PeerJS broker is blocked by strict corporate/school firewalls
-  const handleApplyMoveStringFallback = (sanString: string) => {
-    const trimmed = sanString.trim();
-    if (!trimmed) return;
-
-    // Search current legal moves
-    const allPossibles: Move[] = [];
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const p = gameState.board[r][c];
-        if (p && p.color === gameState.turn) {
-          allPossibles.push(...getLegalMovesForPosition(gameState, { row: r, col: c }));
-        }
-      }
-    }
-
-    const matched = allPossibles.find(m => m.san === trimmed);
-    if (matched) {
-      executeMoveCommit(matched, true); // bypass network send since we just imported it
-      appendChatAlert(`📥 Đã đồng bộ nước đi: ${trimmed}`, 'Nhập tay');
+    if (screen !== 'lesson' || !exercise) return;
+    setSelected(null);
+    setChosen([]);
+    setFeedback(null);
+    if (exercise.type === 'word_order') {
+      setPool(shuffle(exercise.words));
     } else {
-      alert(`Nước đi "${trimmed}" không hợp lệ với thế cờ hiện tại. Hãy kiểm tra lại.`);
+      setOptionsPool(shuffle(exercise.options));
     }
-  };
-
-  // Copy local code helper
-  const copyRoomCodeToClipboard = () => {
-    const pureDigits = myPeerId.replace('chess-vn-', '');
-    navigator.clipboard.writeText(pureDigits);
-    setCopiedAlert(true);
-    setTimeout(() => setCopiedAlert(false), 2000);
-  };
-
-  // ============================================================================
-
-  // Trigger Online Matchmaking Search sequence
-  const startOnlineMatchmaking = () => {
-    setIsSearchingOnline(true);
-    setCurrentOpponent(null);
-    setIsTimerActive(false);
-    setTimeoutWinner(null);
-    setViewingSnapshotIndex(null);
-    if (p2pConnection) p2pConnection.close();
-
-    const randomOpp = ONLINE_OPPONENTS[Math.floor(Math.random() * ONLINE_OPPONENTS.length)];
-    
-    setTimeout(() => {
-      setIsSearchingOnline(false);
-      setCurrentOpponent(randomOpp);
-      setGameMode('online_simulation');
-
-      const assignedColor: PieceColor = Math.random() < 0.5 ? 'w' : 'b';
-      setPlayerColor(assignedColor);
-      setIsFlipped(assignedColor === 'b');
-
-      const secs = getInitialSeconds(timeControl);
-      setWhiteTimeLeft(secs);
-      setBlackTimeLeft(secs);
-      setIsTimerActive(true);
-
-      const newB = createInitialState();
-      setGameState(newB);
-
-      setChatMessages([
-        { sender: 'Hệ thống', text: `Ghép đấu thành công! Bạn đối đầu với ${randomOpp.username} (${randomOpp.rating} Elo)`, time: 'Bây giờ' },
-        { sender: randomOpp.username, text: randomOpp.greeting, time: 'Bây giờ' }
-      ]);
-
-      if (assignedColor === 'b') {
-        triggerAiCounterpartMove(newB, randomOpp);
-      }
-    }, 2000);
-  };
-
-  // Process automated responses/moves from simulated online opponent or standard AI
-  const triggerAiCounterpartMove = (currentBoardState: GameState, activeOpponent: OnlineOpponent | null = null) => {
-    setIsAiThinking(true);
-    setActiveHint(null);
-
-    const delay = timeControl === 'bullet' ? 300 : timeControl === 'blitz' ? 600 : 1000;
-
-    setTimeout(() => {
-      const difficultyLevel = activeOpponent 
-        ? (activeOpponent.rating > 1900 ? 'expert' : activeOpponent.rating > 1600 ? 'intermediate' : 'beginner')
-        : aiDifficulty;
-
-      const bestMove = findBestMoveAI(currentBoardState, difficultyLevel);
-      if (bestMove) {
-        const isCapture = !!bestMove.captured || bestMove.isEnPassant;
-        const nextState = makeMove(currentBoardState, bestMove);
-        setGameState(nextState);
-        setIsAiThinking(false);
-
-        if (nextState.isCheckmate) {
-          playVictorySound(soundMuted);
-          if (gameMode === 'online_simulation' && activeOpponent) {
-            appendChatAlert(activeOpponent.goodGame, activeOpponent.username);
-            setPlayerLosses(l => l + 1);
-            setPlayerRating(r => r - 14);
-          }
-        } else if (nextState.isCheck) {
-          playCheckSound(soundMuted);
-          if (gameMode === 'online_simulation' && activeOpponent && Math.random() < 0.6) {
-            const taunt = activeOpponent.taunts[Math.floor(Math.random() * activeOpponent.taunts.length)];
-            appendChatAlert(taunt, activeOpponent.username);
-          }
-        } else if (isCapture) {
-          playCaptureSound(soundMuted);
-          if (gameMode === 'online_simulation' && activeOpponent && Math.random() < 0.3) {
-            appendChatAlert('Oops, cảm ơn vì quân cờ nhé!', activeOpponent.username);
-          }
-        } else {
-          playMoveSound(soundMuted);
-        }
-      } else {
-        setIsAiThinking(false);
-      }
-    }, delay);
-  };
-
-  // Handle standard AI turns in PvE mode
-  useEffect(() => {
-    if (viewingSnapshotIndex !== null) return;
-    if (gameState.isCheckmate || gameState.isStalemate || timeoutWinner !== null) return;
-
-    const isAiTurn = (gameMode === 'pve' || gameMode === 'online_simulation') && gameState.turn !== playerColor;
-
-    if (isAiTurn && !isAiThinking && !isSearchingOnline) {
-      triggerAiCounterpartMove(gameState, currentOpponent);
+    if (exercise.type === 'listening') {
+      setTimeout(() => speak(exercise.audioText), 350);
     }
-  }, [gameState, gameMode, playerColor, viewingSnapshotIndex, timeoutWinner, isSearchingOnline, currentOpponent]);
+  }, [exIndex, activeUnit, screen]);
 
-  // Load interactive step-by-step masterclass lesson
-  const handleStartLesson = (lesson: Lesson) => {
-    setActiveLesson(lesson);
-    setGameMode('lesson');
-    setLessonMoveIndex(0);
-    setViewingSnapshotIndex(null);
-    setIsTimerActive(false);
-    setTimeoutWinner(null);
-    setCurrentOpponent(null);
-    setPlayerColor('w');
-    setIsFlipped(false);
-    if (p2pConnection) p2pConnection.close();
-
-    let lState: GameState;
-    if (lesson.initialFenOrPreset === 'classic') {
-      lState = createInitialState();
-    } else {
-      lState = createPuzzleState(lesson.initialFenOrPreset);
-    }
-    setGameState(lState);
-    setLessonFeedback(`💡 ${lesson.instructions[0]}`);
-  };
-
-  // Load high speed combo Puzzle Rush
-  const handleStartPuzzleRush = () => {
-    setGameMode('puzzle_rush');
-    setPuzzleRushScore(0);
-    setPuzzleRushStrikes(0);
-    setCurrentRushType('mateIn1');
-    setViewingSnapshotIndex(null);
-    setIsTimerActive(false);
-    setTimeoutWinner(null);
-    setCurrentOpponent(null);
-    setPlayerColor('w');
-    setIsFlipped(false);
-    if (p2pConnection) p2pConnection.close();
-
-    const pState = createPuzzleState('mateIn1');
-    setGameState(pState);
-  };
-
-  // Setup unranked standard start vs standard offline CPU or friend
-  const handleSetupUnranked = (mode: 'pve' | 'pvp') => {
-    setGameMode(mode);
-    setGameState(createInitialState());
-    setSelectedSquare(null);
-    setLegalMovesForSelected([]);
-    setPromotionPendingMoves(null);
-    setActiveHint(null);
-    setViewingSnapshotIndex(null);
-    setIsTimerActive(false);
-    setTimeoutWinner(null);
-    setCurrentOpponent(null);
-    setPlayerColor('w');
-    setIsFlipped(false);
-    if (p2pConnection) p2pConnection.close();
-  };
-
-  // Submit manual chat string from input box
-  const handleSendChatMessage = (e: React.FormEvent) => {
+  // Xử lý Đăng nhập / Đăng ký giả lập Gmail
+  function handleAuth(e) {
     e.preventDefault();
-    if (!customInputMessage.trim()) return;
+    if (!emailInput || (authTab === 'register' && !nameInput)) return;
 
-    const msgCopy = customInputMessage;
-    appendChatAlert(msgCopy, playerUsername);
-    setCustomInputMessage('');
-
-    // If connected via PeerJS remote, broadcast message instantly across internet
-    if (gameMode === 'remote_p2p' && p2pConnection) {
-      p2pConnection.send({ type: 'chat', text: msgCopy, sender: playerUsername });
-      return;
-    }
-
-    // If opponent is active online simulator, reply intelligently
-    if (gameMode === 'online_simulation' && currentOpponent) {
-      setTimeout(() => {
-        const lower = msgCopy.toLowerCase();
-        if (lower.includes('hello') || lower.includes('chào') || lower.includes('hi')) {
-          appendChatAlert('Chào bạn nhé! Cứ tập trung đi quân nào.', currentOpponent.username);
-        } else if (lower.includes('gg') || lower.includes('hay')) {
-          appendChatAlert('Cảm ơn nhé! Trận đấu rất kịch tính.', currentOpponent.username);
-        } else {
-          const defaultReplies = [
-            'Hehe, thú vị đấy.',
-            'Đang tập trung suy nghĩ nước cờ, đợi chút nhé.',
-            'Bạn đi quân cẩn thận đấy nhé!'
-          ];
-          appendChatAlert(defaultReplies[Math.floor(Math.random() * defaultReplies.length)], currentOpponent.username);
-        }
-      }, 1200);
-    }
-  };
-
-  // Process human physical click on a board square
-  const handleSquareClick = (row: number, col: number) => {
-    if (viewingSnapshotIndex !== null) return;
-    if (isAiThinking || isSearchingOnline) return;
-    if (gameState.isCheckmate || gameState.isStalemate || timeoutWinner !== null) return;
-
-    // Disallow moving opponent pieces if locked to specific color
-    if ((gameMode === 'online_simulation' || gameMode === 'pve' || gameMode === 'remote_p2p') && gameState.turn !== playerColor) return;
-
-    if (activeHint) setActiveHint(null);
-
-    const clickedPiece = gameState.board[row][col];
-
-    if (!selectedSquare) {
-      if (clickedPiece && clickedPiece.color === gameState.turn) {
-        setSelectedSquare({ row, col });
-        const moves = getLegalMovesForPosition(gameState, { row, col });
-        setLegalMovesForSelected(moves);
-      }
-      return;
-    }
-
-    if (selectedSquare.row === row && selectedSquare.col === col) {
-      setSelectedSquare(null);
-      setLegalMovesForSelected([]);
-      return;
-    }
-
-    if (clickedPiece && clickedPiece.color === gameState.turn) {
-      setSelectedSquare({ row, col });
-      const moves = getLegalMovesForPosition(gameState, { row, col });
-      setLegalMovesForSelected(moves);
-      return;
-    }
-
-    const matchingMoves = legalMovesForSelected.filter(m => m.to.row === row && m.to.col === col);
-
-    if (matchingMoves.length > 0) {
-      if (matchingMoves[0].promotion) {
-        setPromotionPendingMoves(matchingMoves);
-        return;
-      }
-
-      executeMoveCommit(matchingMoves[0]);
+    if (authTab === 'login') {
+      // Giả lập lấy thông tin cũ
+      const username = emailInput.split('@')[0];
+      setUser({ email: emailInput, name: username, xp: 120, streak: 3 });
     } else {
-      setSelectedSquare(null);
-      setLegalMovesForSelected([]);
+      setUser({ email: emailInput, name: nameInput, xp: 0, streak: 0 });
     }
-  };
+    setScreen('path');
+  }
 
-  // Commit valid validated physical move to core state
-  const executeMoveCommit = (move: Move, isImportedString: boolean = false) => {
-    const isCapture = !!move.captured || move.isEnPassant;
-    const nextState = makeMove(gameState, move);
+  function handleLogout() {
+    setUser(null);
+    setEmailInput('');
+    setNameInput('');
+    setScreen('path');
+    setMainTab('learn');
+  }
 
-    // If we are actively in a P2P connection, broadcast our move across the WebRTC tunnel
-    if (gameMode === 'remote_p2p' && p2pConnection && !isImportedString) {
-      p2pConnection.send({
-        type: 'move',
-        san: move.san
-      });
-    }
+  function isUnlocked(i) {
+    return i === 0 || completedUnits.has(i - 1);
+  }
 
-    // SPECIAL CASE 1: Processing Interactive Lesson validation
-    if (gameMode === 'lesson' && activeLesson) {
-      const requiredSanTarget = activeLesson.targetMoves[lessonMoveIndex];
-      if (move.san?.replace(/[+#]/g, '') === requiredSanTarget.replace(/[+#]/g, '')) {
-        const nextIdx = lessonMoveIndex + 1;
-        if (nextIdx >= activeLesson.targetMoves.length) {
-          setLessonFeedback('🎉 CHÚC MỪNG! Bạn đã hoàn thành xuất sắc bài học này.');
-          playVictorySound(soundMuted);
-        } else {
-          setLessonMoveIndex(nextIdx);
-          setLessonFeedback(`✅ Nước đi chính xác! Tiếp tục: ${activeLesson.instructions[nextIdx] || 'Hoàn thành các bước.'}`);
-          playMoveSound(soundMuted);
-        }
-        setGameState(nextState);
-      } else {
-        setLessonFeedback(`❌ Nước đi chưa khớp với mục tiêu bài học (Yêu cầu: ${requiredSanTarget}). Hãy thử lại!`);
-        playCheckSound(soundMuted);
-      }
-      setSelectedSquare(null);
-      setLegalMovesForSelected([]);
-      setPromotionPendingMoves(null);
-      return;
-    }
+  function startUnit(i) {
+    if (!isUnlocked(i)) return;
+    setActiveUnit(i);
+    setExIndex(0);
+    setHearts(5);
+    setLessonXp(0);
+    setScreen('lesson');
+  }
 
-    // SPECIAL CASE 2: Processing Combo Puzzle Rush tactical validation
-    if (gameMode === 'puzzle_rush') {
-      if (nextState.isCheckmate) {
-        setPuzzleRushScore(s => s + 1);
-        playCaptureSound(soundMuted);
-        
-        const types: ('mateIn1' | 'mateIn2' | 'endgame')[] = ['mateIn1', 'mateIn2', 'endgame'];
-        const nextType = types[Math.floor(Math.random() * types.length)];
-        setCurrentRushType(nextType);
-        
-        setTimeout(() => {
-          setGameState(createPuzzleState(nextType));
-        }, 500);
-      } else {
-        setPuzzleRushStrikes(st => {
-          const updated = st + 1;
-          if (updated >= 3) {
-            playVictorySound(soundMuted);
-          } else {
-            playCheckSound(soundMuted);
-          }
-          return updated;
-        });
-        setGameState(nextState);
-      }
-      setSelectedSquare(null);
-      setLegalMovesForSelected([]);
-      setPromotionPendingMoves(null);
-      return;
-    }
-
-    // Standard commit
-    setGameState(nextState);
-    setSelectedSquare(null);
-    setLegalMovesForSelected([]);
-    setPromotionPendingMoves(null);
-
-    // Live audio triggers
-    if (nextState.isCheckmate) {
-      playVictorySound(soundMuted);
-      if (gameMode === 'online_simulation' && currentOpponent) {
-        appendChatAlert('🏆 CHÚC MỪNG! Bạn đã chiếu bí đối thủ thành công.', 'Hệ thống');
-        setPlayerWins(w => w + 1);
-        setPlayerRating(r => r + 16);
-      } else if (gameMode === 'remote_p2p') {
-        appendChatAlert('🏆 CHÚC MỪNG! Trận đấu kết thúc bằng chiếu bí qua mạng.', 'Hệ thống P2P');
-      }
-    } else if (nextState.isCheck) {
-      playCheckSound(soundMuted);
-    } else if (isCapture) {
-      playCaptureSound(soundMuted);
+  function handleCheck() {
+    if (!exercise) return;
+    let correct = false;
+    if (exercise.type === 'word_order') {
+      correct = chosen.join(' ') === exercise.answer.join(' ');
     } else {
-      playMoveSound(soundMuted);
+      correct = selected === exercise.answer;
     }
-  };
-
-  // Compute live engine recommended hint
-  const triggerGrandmasterHint = () => {
-    if (gameState.isCheckmate || gameState.isStalemate || timeoutWinner !== null) return;
-    const best = findBestMoveAI(gameState, 'expert');
-    if (best) {
-      setActiveHint(best);
-      setSelectedSquare(best.from);
-      setLegalMovesForSelected(getLegalMovesForPosition(gameState, best.from));
+    setFeedback(correct ? 'correct' : 'wrong');
+    if (correct) {
+      setUser(prev => ({ ...prev, xp: prev.xp + 10 }));
+      setLessonXp((l) => l + 10);
+    } else {
+      setHearts((h) => Math.max(h - 1, 0));
     }
-  };
+  }
 
-  const activeStateToDisplay = viewingSnapshotIndex !== null 
-    ? {
-        board: gameState.moveHistory[viewingSnapshotIndex].stateSnapshot.board,
-        turn: gameState.moveHistory[viewingSnapshotIndex].stateSnapshot.turn,
-        isCheck: false,
-        isCheckmate: false
-      }
-    : gameState;
-
-  const getSquareBg = (r: number, c: number) => {
-    const isLight = (r + c) % 2 === 0;
-    switch (boardTheme) {
-      case 'emerald':
-        return isLight ? 'bg-[#ebecd0] text-[#739552]' : 'bg-[#739552] text-[#ebecd0]';
-      case 'classic':
-        return isLight ? 'bg-[#f0d9b5] text-[#b58863]' : 'bg-[#b58863] text-[#f0d9b5]';
-      case 'velvet':
-        return isLight ? 'bg-[#e3eaf7] text-[#5b759a]' : 'bg-[#5b759a] text-[#e3eaf7]';
-      case 'obsidian':
-        return isLight ? 'bg-[#9ca3af] text-[#374151]' : 'bg-[#374151] text-[#9ca3af]';
-      default:
-        return isLight ? 'bg-[#ebecd0] text-[#739552]' : 'bg-[#739552] text-[#ebecd0]';
+  function handleContinue() {
+    if (feedback === 'wrong' && hearts <= 0) {
+      setUser(prev => ({ ...prev, xp: Math.max(prev.xp - lessonXp, 0) }));
+      setScreen('gameover');
+      return;
     }
-  };
-
-  const lastMoveMade = gameState.moveHistory.length > 0 
-    ? gameState.moveHistory[gameState.moveHistory.length - 1].move 
-    : null;
-
-  const getMovePairs = () => {
-    const pairs: { whiteString: string; blackString: string; wIndex: number; bIndex: number }[] = [];
-    for (let i = 0; i < gameState.moveHistory.length; i += 2) {
-      pairs.push({
-        whiteString: gameState.moveHistory[i].move.san || '?',
-        wIndex: i,
-        blackString: gameState.moveHistory[i + 1] ? gameState.moveHistory[i + 1].move.san || '?' : '',
-        bIndex: i + 1
-      });
+    if (exIndex + 1 < unit.exercises.length) {
+      setExIndex((i) => i + 1);
+    } else {
+      setCompletedUnits((prev) => new Set(prev).add(activeUnit));
+      setUser(prev => ({ ...prev, streak: prev.streak + 1 }));
+      setScreen('complete');
     }
-    return pairs;
-  };
+  }
 
-  const currentScore = evaluateBoard(gameState.board);
-  const ranks = isFlipped ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3, 4, 5, 6, 7];
-  const files = isFlipped ? [7, 6, 5, 4, 3, 2, 1, 0] : [0, 1, 2, 3, 4, 5, 6, 7];
+  const canCheck = exercise ? (exercise.type === 'word_order' ? chosen.length === exercise.words.length : !!selected) : false;
 
-  const formatClockTime = (totalSeconds: number) => {
-    const mins = Math.floor(totalSeconds / 60);
-    const secs = totalSeconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  return (
-    <div className="min-h-screen bg-[#302e2b] text-[#e5e5e5] font-sans flex flex-col antialiased selection:bg-[#81b64c] selection:text-white">
-      
-      {/* Exquisite Top Chess.com Style Premium Global Navigation Banner */}
-      <header className="bg-[#262421] border-b border-[#363431] sticky top-0 z-40 px-4 py-2.5 shadow-md">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          
-          <div className="flex items-center space-x-2">
-            <div className="bg-[#81b64c] p-1.5 rounded-lg text-white font-extrabold shadow-inner flex items-center justify-center">
-              <span className="text-sm tracking-tighter">♟️ CHESS.COM</span>
+  /* CHƯA ĐĂNG NHẬP -> HIỆN MÀN HÌNH AUTH */
+  if (!user) {
+    return (
+      <div style={{ background: C.bg, minHeight: '100vh', fontFamily: "'Inter', sans-serif', color: C.ink" }} className="flex flex-col justify-center items-center px-4 py-8">
+        <div style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 24, width: '100%', maxWidth: 400, padding: 28, boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
+          <div className="flex flex-col items-center gap-2 mb-6">
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Sparkles size={24} color="#fff" />
             </div>
+            <h1 className="font-display text-2xl font-extrabold" style={{ color: C.primaryDark }}>EnLingo VN</h1>
+            <p style={{ color: C.inkSoft, fontSize: 14 }}>Học tiếng Anh chuẩn Duolingo</p>
+          </div>
+
+          <div className="flex border-b mb-6" style={{ borderColor: C.border }}>
+            <button onClick={() => setAuthTab('login')} className="flex-1 pb-2 font-display font-bold text-center transition-all" style={{ color: authTab === 'login' ? C.primary : C.inkSoft, borderBottom: authTab === 'login' ? `3px solid ${C.primary}` : 'none' }}>Đăng nhập</button>
+            <button onClick={() => setAuthTab('register')} className="flex-1 pb-2 font-display font-bold text-center transition-all" style={{ color: authTab === 'register' ? C.primary : C.inkSoft, borderBottom: authTab === 'register' ? `3px solid ${C.primary}` : 'none' }}>Đăng ký</button>
+          </div>
+
+          <form onSubmit={handleAuth} className="flex flex-col gap-4">
+            {authTab === 'register' && (
+              <div>
+                <label className="block text-xs font-bold mb-1" style={{ color: C.inkSoft }}>TÊN HIỂN THỊ</label>
+                <div className="relative">
+                  <User size={16} className="absolute left-3 top-3.5" color={C.inkSoft} />
+                  <input required type="text" placeholder="Ví dụ: Alex Tuấn" value={nameInput} onChange={e => setNameInput(e.target.value)} style={{ width: '100%', padding: '10px 12px 10px 36px', border: `2px solid ${C.border}`, borderRadius: 12, outline: 'none' }} />
+                </div>
+              </div>
+            )}
             <div>
-              <span className="text-xs font-bold text-[#bababa] uppercase tracking-widest block">
-                Việt Nam P2P Suite
-              </span>
-              <p className="text-[10px] text-[#81b64c] font-semibold flex items-center gap-1">
-                <Globe className="w-3 h-3 text-[#1fb3c4]" /> Đấu Trực Tiếp & Từ Xa WebRTC
-              </p>
+              <label className="block text-xs font-bold mb-1" style={{ color: C.inkSoft }}>TÀI KHOẢN GMAIL</label>
+              <div className="relative">
+                <Mail size={16} className="absolute left-3 top-3.5" color={C.inkSoft} />
+                <input required type="email" placeholder="username@gmail.com" value={emailInput} onChange={e => setEmailInput(e.target.value)} style={{ width: '100%', padding: '10px 12px 10px 36px', border: `2px solid ${C.border}`, borderRadius: 12, outline: 'none' }} />
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 sm:gap-4 bg-[#1e1c18] px-3 py-1.5 rounded-lg border border-[#363431] text-xs font-medium">
-            <div className="flex items-center gap-1.5 text-white font-bold">
-              <UserCheck className="w-3.5 h-3.5 text-[#81b64c]" />
-              <input 
-                type="text"
-                value={playerUsername}
-                onChange={(e) => setPlayerUsername(e.target.value)}
-                className="bg-transparent border-b border-[#403d39] text-xs font-bold text-[#f0c15c] w-28 focus:outline-none focus:border-[#81b64c]"
-                title="Sửa tên hiển thị của bạn"
-              />
-            </div>
-            <div className="border-l border-[#363431] pl-3 flex items-center gap-2 text-[#bababa]">
-              <span className="font-mono bg-[#302e2b] px-1.5 py-0.5 rounded text-[#f0c15c] font-bold hidden sm:inline">
-                ⭐ {playerRating} Elo
-              </span>
-              <span className="text-[10px] text-[#81b64c] font-bold">Thắng: {playerWins}</span>
-              <span className="text-[10px] text-[#fa6666] font-bold">Thua: {playerLosses}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSoundMuted(!soundMuted)}
-              className="p-2 bg-[#363431] hover:bg-[#403d39] text-[#bababa] rounded-lg transition-colors border border-[#403d39]"
-              title={soundMuted ? "Bật âm thanh (Unmute)" : "Tắt âm thanh (Mute)"}
-            >
-              {soundMuted ? <VolumeX className="w-4 h-4 text-[#fa6666]" /> : <Volume2 className="w-4 h-4 text-[#81b64c]" />}
+            <button type="submit" className="font-display flex items-center justify-center gap-2 mt-2" style={{ width: '100%', padding: '12px', background: C.primary, color: '#fff', borderRadius: 12, fontWeight: 700, boxShadow: `0 4px 0 ${C.primaryDark}`, border: 'none', cursor: 'pointer' }}>
+              {authTab === 'login' ? <LogIn size={18} /> : <UserPlus size={18} />}
+              {authTab === 'login' ? 'TIẾP TỤC VỚI GMAIL' : 'TẠO TÀI KHOẢN'}
             </button>
+          </form>
 
-            <button
-              onClick={() => handleSetupUnranked('pve')}
-              className="flex items-center gap-1 bg-[#403d39] hover:bg-[#524e49] text-white px-2.5 py-1.5 rounded-lg text-xs font-bold transition border border-[#524e49]"
-            >
-              <RotateCcw className="w-3.5 h-3.5 text-[#f0c15c]" /> Đặt lại
-            </button>
+          <div className="mt-6 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: C.bg, fontSize: 11, color: C.inkSoft }}>
+            <ShieldAlert size={16} color={C.primary} className="shrink-0" />
+            <span>Hệ thống Demo tự động xác thực Gmail hợp lệ không cần mật khẩu.</span>
           </div>
-
         </div>
-      </header>
-
-      {/* Main Container Layout */}
-      <div className="max-w-7xl mx-auto w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 items-stretch">
-        
-        {/* ==================== LEFT NAVIGATION SIDEBAR ==================== */}
-        <aside className="lg:col-span-2 bg-[#211f1c] border-r border-[#363431] p-3 flex flex-row lg:flex-col gap-1 overflow-x-auto lg:overflow-x-visible justify-start items-center lg:items-stretch select-none z-10 shrink-0">
-          
-          <span className="text-[10px] font-extrabold text-[#75726e] uppercase tracking-wider px-2 py-1 hidden lg:block">
-            CHẾ ĐỘ & TÍNH NĂNG
-          </span>
-
-          <button
-            onClick={() => setActiveTab('play_online')}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'play_online' ? 'bg-[#81b64c] text-white shadow' : 'text-[#bababa] hover:bg-[#2c2926] hover:text-white'}`}
-          >
-            <Zap className="w-4 h-4 text-[#f0c15c] shrink-0" />
-            <span>Ghép Đấu Nhanh</span>
-          </button>
-
-          {/* NEW EXCLUSIVE TAB FOR REAL INTERNET REMOTE P2P PLAY */}
-          <button
-            onClick={() => setActiveTab('remote_p2p')}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'remote_p2p' ? 'bg-[#f0c15c] text-[#1e1c18] shadow font-extrabold animate-pulse' : 'text-[#bababa] hover:bg-[#2c2926] hover:text-white'}`}
-          >
-            <Wifi className="w-4 h-4 text-[#1fb3c4] shrink-0" />
-            <span>Đấu Từ Xa (P2P)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('lessons')}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'lessons' ? 'bg-[#81b64c] text-white shadow' : 'text-[#bababa] hover:bg-[#2c2926] hover:text-white'}`}
-          >
-            <BookOpen className="w-4 h-4 text-[#1fb3c4] shrink-0" />
-            <span>Bài học (Lessons)</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('puzzle_rush')}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'puzzle_rush' ? 'bg-[#81b64c] text-white shadow' : 'text-[#bababa] hover:bg-[#2c2926] hover:text-white'}`}
-          >
-            <Trophy className="w-4 h-4 text-[#f0c15c] shrink-0" />
-            <span>Puzzle Rush ⚡</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('vs_computer')}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'vs_computer' ? 'bg-[#81b64c] text-white shadow' : 'text-[#bababa] hover:bg-[#2c2926] hover:text-white'}`}
-          >
-            <Cpu className="w-4 h-4 text-[#96bc4b] shrink-0" />
-            <span>Đấu Máy AI</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('streamers')}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'streamers' ? 'bg-[#81b64c] text-white shadow' : 'text-[#bababa] hover:bg-[#2c2926] hover:text-white'}`}
-          >
-            <Tv className="w-4 h-4 text-[#fa6666] shrink-0" />
-            <span>Kênh Streamers</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('analysis')}
-            className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-bold text-xs transition-all whitespace-nowrap ${activeTab === 'analysis' ? 'bg-[#81b64c] text-white shadow' : 'text-[#bababa] hover:bg-[#2c2926] hover:text-white'}`}
-          >
-            <Award className="w-4 h-4 text-[#f0c15c] shrink-0" />
-            <span>Báo cáo Game</span>
-          </button>
-
-          <div className="mt-auto pt-4 border-t border-[#363431] hidden lg:block text-[11px] text-[#8c8a86] space-y-2">
-            <span className="font-bold text-[#bababa] block text-[#f0c15c]">★ Chơi Từ Xa:</span>
-            <p className="leading-tight">
-              Tạo phòng và gửi mã số 4 ký tự cho bạn bè nhập để thi đấu xuyên quốc gia trực tiếp qua trình duyệt!
-            </p>
-          </div>
-
-        </aside>
-
-        {/* ==================== CENTER CHESS ARENA ==================== */}
-        <main className="lg:col-span-7 bg-[#302e2b] p-3 sm:p-4 flex flex-col items-center justify-start border-r border-[#363431]">
-          
-          {isSearchingOnline && (
-            <div className="w-full bg-[#81b64c] text-[#1e1c18] p-4 rounded-xl mb-4 text-center shadow-xl animate-pulse font-bold flex flex-col items-center justify-center">
-              <Search className="w-8 h-8 mb-2 animate-spin text-white" />
-              <span className="text-sm uppercase tracking-wider text-white">Đang tìm kiếm đối thủ Online toàn cầu...</span>
-              <p className="text-xs text-[#ebecd0] mt-1 font-medium">Hệ thống đang ghép theo khung Elo gần nhất của bạn (~{playerRating} Elo)</p>
-            </div>
-          )}
-
-          {viewingSnapshotIndex !== null && (
-            <div className="w-full bg-[#f0c15c] text-[#1e1c18] px-4 py-2 rounded-xl mb-3 font-bold text-xs flex items-center justify-between shadow-lg animate-pulse">
-              <div className="flex items-center gap-2">
-                <Eye className="w-4 h-4" />
-                <span>CHẾ ĐỘ XEM LẠI: Lịch sử bàn cờ sau Nước #{viewingSnapshotIndex + 1}</span>
-              </div>
-              <button
-                onClick={() => setViewingSnapshotIndex(null)}
-                className="bg-[#1e1c18] text-white px-3 py-1 rounded text-[11px] hover:bg-[#302e2b] transition uppercase"
-              >
-                Quay lại Live Trận
-              </button>
-            </div>
-          )}
-
-          {promotionPendingMoves && (
-            <div className="w-full bg-[#1e1c18] text-white p-4 rounded-xl mb-3 border-2 border-[#f0c15c] shadow-2xl animate-fadeIn z-30 text-center">
-              <span className="font-extrabold text-sm text-[#f0c15c] block mb-1">
-                👑 PHONG CẤP TỐT (PAWN PROMOTION)
-              </span>
-              <p className="text-xs text-[#bababa] mb-3">Hãy chọn quân cờ tối thượng mà bạn muốn biến thành:</p>
-              
-              <div className="grid grid-cols-4 gap-3 max-w-xs mx-auto">
-                {promotionPendingMoves.map((m, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => executeMoveCommit(m)}
-                    className="bg-[#302e2b] hover:bg-[#403d39] p-2.5 rounded-lg border border-[#524e49] flex flex-col items-center justify-center transition shadow group"
-                  >
-                    <ChessPiece type={m.promotion || 'q'} color={gameState.turn} size={36} themeStyle={pieceTheme} />
-                    <span className="text-[10px] font-bold text-[#bababa] group-hover:text-white mt-1 uppercase">
-                      {m.promotion === 'q' ? 'Hậu (Q)' : m.promotion === 'r' ? 'Xe (R)' : m.promotion === 'b' ? 'Tượng (B)' : 'Mã (N)'}
-                    </span>
-                  </button>
-                ))}
-              </div>
-              <button
-                onClick={() => setPromotionPendingMoves(null)}
-                className="mt-2 block mx-auto text-[10px] text-[#fa6666] underline"
-              >
-                Hủy nước đi
-              </button>
-            </div>
-          )}
-
-          {/* TOP CARD: OPPONENT PLAYER CARD & TICKING CLOCK */}
-          <div className="w-full bg-[#262421] rounded-t-xl px-4 py-2 border-x border-t border-[#363431] flex items-center justify-between text-xs select-none">
-            
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded bg-[#403d39] flex items-center justify-center text-lg shadow-inner">
-                {gameMode === 'remote_p2p' ? '🌐' : gameMode === 'online_simulation' && currentOpponent ? currentOpponent.avatar : gameMode === 'lesson' ? '📘' : gameMode === 'puzzle_rush' ? '⚡' : '🤖'}
-              </div>
-              <div>
-                <div className="flex items-center gap-1 font-bold text-white">
-                  <span>
-                    {gameMode === 'remote_p2p' 
-                      ? remoteOpponentName 
-                      : gameMode === 'online_simulation' && currentOpponent 
-                      ? currentOpponent.username 
-                      : gameMode === 'lesson' 
-                      ? 'Thầy giáo cờ vua' 
-                      : gameMode === 'puzzle_rush'
-                      ? 'Thử thách Puzzle Rush'
-                      : `Stockfish Máy (${aiDifficulty.toUpperCase()})`}
-                  </span>
-                  {gameMode === 'online_simulation' && currentOpponent && (
-                    <span title="Quốc gia">{currentOpponent.country}</span>
-                  )}
-                  {gameMode === 'remote_p2p' && (
-                    <span className="bg-[#1fb3c4] text-[9px] text-white px-1 rounded font-mono">P2P</span>
-                  )}
-                </div>
-                <span className="text-[10px] text-[#bababa] font-mono block">
-                  {gameMode === 'remote_p2p' 
-                    ? 'Bạn bè qua WebRTC' 
-                    : gameMode === 'online_simulation' && currentOpponent 
-                    ? `${currentOpponent.rating} Elo` 
-                    : gameMode === 'lesson' 
-                    ? 'Hướng dẫn viên' 
-                    : 'Chế độ luyện tập'}
-                </span>
-              </div>
-            </div>
-
-            <div className={`px-3 py-1.5 rounded font-mono font-bold text-sm flex items-center gap-1.5 shadow-inner transition-colors ${
-              (gameMode === 'online_simulation' || gameMode === 'remote_p2p' || isTimerActive)
-                ? (gameState.turn !== playerColor && isTimerActive ? 'bg-[#f0c15c] text-[#1e1c18]' : 'bg-[#1e1c18] text-white')
-                : 'bg-[#1e1c18] text-[#75726e]'
-            }`}>
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {(gameMode === 'online_simulation' || gameMode === 'remote_p2p')
-                  ? formatClockTime(playerColor === 'w' ? blackTimeLeft : whiteTimeLeft) 
-                  : '∞:∞'}
-              </span>
-            </div>
-
-          </div>
-
-          {/* THE STATELY 8x8 CHESS ARENA FRAME */}
-          <div className="relative p-2 sm:p-3 bg-[#262421] border-x border-[#363431] w-full max-w-full flex justify-center select-none overflow-hidden">
-            
-            <div className="mr-2 hidden sm:flex flex-col items-center justify-between py-1 bg-[#1e1c18] rounded border border-[#363431]">
-              <EvalBar 
-                score={currentScore} 
-                isCheckmate={gameState.isCheckmate} 
-                turn={gameState.turn} 
-              />
-            </div>
-
-            <div className="relative">
-              
-              <div className="grid grid-cols-8 border-2 border-[#1e1c18] shadow-2xl rounded overflow-hidden bg-[#1e1c18]">
-                {ranks.map(r => 
-                  files.map(c => {
-                    const piece = activeStateToDisplay.board[r][c];
-                    const isSelected = selectedSquare?.row === r && selectedSquare?.col === c;
-                    const isLegalDest = legalMovesForSelected.some(m => m.to.row === r && m.to.col === c);
-                    const isLastMoveSrc = lastMoveMade?.from.row === r && lastMoveMade?.from.col === c;
-                    const isLastMoveDst = lastMoveMade?.to.row === r && lastMoveMade?.to.col === c;
-                    const isLastMoveHighlight = isLastMoveSrc || isLastMoveDst;
-                    const isHintSrc = activeHint?.from.row === r && activeHint?.from.col === c;
-                    const isHintDst = activeHint?.to.row === r && activeHint?.to.col === c;
-                    const isKingCheckedHere = gameState.isCheck && piece?.type === 'k' && piece?.color === activeStateToDisplay.turn;
-                    const baseBg = getSquareBg(r, c);
-
-                    return (
-                      <div
-                        key={`${r}-${c}`}
-                        onClick={() => handleSquareClick(r, c)}
-                        className={`w-9 h-9 sm:w-13 sm:h-13 md:w-15 md:h-15 flex items-center justify-center relative cursor-pointer transition-all duration-100 ${baseBg} ${isSelected ? 'ring-4 ring-[#f0c15c] z-20 scale-95 rounded' : ''}`}
-                      >
-                        {isLastMoveHighlight && (
-                          <div className="absolute inset-0 bg-[#f0c15c]/40 pointer-events-none mix-blend-normal" />
-                        )}
-
-                        {isHintSrc && (
-                          <div className="absolute inset-0 ring-4 ring-[#1fb3c4] animate-pulse pointer-events-none rounded" />
-                        )}
-                        {isHintDst && (
-                          <div className="absolute inset-0 bg-[#1fb3c4]/40 animate-pulse pointer-events-none" />
-                        )}
-
-                        {isKingCheckedHere && (
-                          <div className="absolute inset-0 bg-[#fa6666]/80 animate-ping opacity-80 pointer-events-none rounded-full" />
-                        )}
-
-                        {piece && (
-                          <div className="relative z-10 flex items-center justify-center w-full h-full">
-                            <ChessPiece 
-                              type={piece.type} 
-                              color={piece.color} 
-                              size={typeof window !== 'undefined' && window.innerWidth < 640 ? 32 : 48} 
-                              themeStyle={pieceTheme}
-                            />
-                          </div>
-                        )}
-
-                        {isLegalDest && (
-                          <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-                            {piece ? (
-                              <div className="w-full h-full border-4 border-[#fa6666]/90 rounded animate-pulse shadow-md" />
-                            ) : (
-                              <div className="w-3 sm:w-4 h-3 sm:h-4 bg-[#302e2b]/60 rounded-full shadow-inner" />
-                            )}
-                          </div>
-                        )}
-
-                        {c === files[0] && (
-                          <span className="absolute top-0.5 left-1 text-[8px] sm:text-[9px] font-bold opacity-75 pointer-events-none">
-                            {8 - r}
-                          </span>
-                        )}
-                        {r === ranks[7] && (
-                          <span className="absolute bottom-0.5 right-1 text-[8px] sm:text-[9px] font-bold opacity-75 pointer-events-none">
-                            {String.fromCharCode(97 + c)}
-                          </span>
-                        )}
-
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* BOTTOM CARD: USER PERSONAL PLAYER CARD & TICKING CLOCK */}
-          <div className="w-full bg-[#262421] rounded-b-xl px-4 py-2 border-x border-b border-[#363431] flex items-center justify-between text-xs select-none">
-            
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded bg-[#81b64c] flex items-center justify-center text-white font-bold text-sm shadow-inner">
-                VN
-              </div>
-              <div>
-                <div className="flex items-center gap-1 font-bold text-white">
-                  <span>{playerUsername}</span>
-                  <span title="Việt Nam">🇻🇳</span>
-                  <span className="bg-[#403d39] text-[10px] text-[#81b64c] px-1 rounded">Bạn</span>
-                </div>
-                <span className="text-[10px] text-[#bababa] font-mono block">
-                  {gameMode === 'remote_p2p' ? 'Cầm quân' : `${playerRating} Elo`}
-                </span>
-              </div>
-            </div>
-
-            <div className={`px-3 py-1.5 rounded font-mono font-bold text-sm flex items-center gap-1.5 shadow-inner transition-colors ${
-              (gameMode === 'online_simulation' || gameMode === 'remote_p2p' || isTimerActive)
-                ? (gameState.turn === playerColor && isTimerActive ? 'bg-[#81b64c] text-white animate-pulse' : 'bg-[#1e1c18] text-white')
-                : 'bg-[#1e1c18] text-[#75726e]'
-            }`}>
-              <Clock className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                {(gameMode === 'online_simulation' || gameMode === 'remote_p2p')
-                  ? formatClockTime(playerColor === 'w' ? whiteTimeLeft : blackTimeLeft) 
-                  : '∞:∞'}
-              </span>
-            </div>
-
-          </div>
-
-          {/* LIVE CRITICAL CONDITIONS BANNER */}
-          <div className="w-full mt-3 space-y-2.5">
-            
-            {gameState.isCheck && !gameState.isCheckmate && viewingSnapshotIndex === null && (
-              <div className="p-3 bg-[#fa6666]/20 border border-[#fa6666] rounded-lg flex items-center gap-2 text-[#fa6666] animate-bounce text-xs font-bold">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>CẢNH BÁO: Vua đang bị chiếu (KING IN CHECK)! Phải phòng thủ ngay.</span>
-              </div>
-            )}
-
-            {gameMode === 'lesson' && activeLesson && (
-              <div className="p-3 bg-[#1fb3c4]/20 border border-[#1fb3c4] rounded-lg text-white text-xs space-y-1">
-                <span className="text-[#1fb3c4] font-bold uppercase tracking-wider block">
-                  🎯 Yêu cầu Bài học: {activeLesson.title}
-                </span>
-                <p className="text-[#e5e5e5] font-medium leading-relaxed">{lessonFeedback}</p>
-                <div className="text-[10px] text-[#bababa] pt-1 border-t border-[#1fb3c4]/30 flex justify-between">
-                  <span>Tiến độ nước đi: {lessonMoveIndex}/{activeLesson.targetMoves.length}</span>
-                  <span>Mục tiêu SAN: <strong className="text-[#f0c15c]">{activeLesson.targetMoves[lessonMoveIndex]}</strong></span>
-                </div>
-              </div>
-            )}
-
-            {gameMode === 'puzzle_rush' && (
-              <div className="p-3 bg-[#302e2b] border-2 border-[#f0c15c] rounded-lg flex items-center justify-between text-xs font-bold text-white shadow-md">
-                <div className="flex items-center gap-2">
-                  <span className="text-[#f0c15c]">⚡ CHUỖI PUZZLE RUSH:</span>
-                  <span className="text-sm bg-[#81b64c] px-2 py-0.5 rounded text-white font-mono">
-                    {puzzleRushScore} Điểm
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-[#fa6666]">
-                  <span>Lỗi sai cho phép (Strikes):</span>
-                  <span className="font-mono text-sm tracking-widest">
-                    {'❌'.repeat(puzzleRushStrikes)}
-                    {'⚪'.repeat(3 - puzzleRushStrikes)}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {gameState.isCheckmate && (
-              <div className="p-4 bg-gradient-to-r from-[#211f1c] via-[#403d39] to-[#211f1c] border-2 border-[#81b64c] rounded-xl text-white shadow-xl text-center">
-                <span className="font-extrabold text-base tracking-wide text-[#81b64c] block mb-1">
-                  🎉 CHIẾU HẾT (CHECKMATE)
-                </span>
-                <p className="text-xs text-[#bababa] font-medium mb-3">
-                  {gameState.turn === 'w' ? 'Bên Đen giành chiến thắng tuyệt đối!' : 'Bên Trắng giành chiến thắng tuyệt đối!'}
-                </p>
-                <button
-                  onClick={() => setActiveTab('analysis')}
-                  className="bg-[#81b64c] hover:bg-[#96bc4b] text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow"
-                >
-                  Xem Báo cáo Phân tích Trận đấu
-                </button>
-              </div>
-            )}
-
-            {timeoutWinner !== null && (
-              <div className="p-4 bg-[#262421] border-2 border-[#fa6666] rounded-xl text-white text-center shadow-md">
-                <span className="font-extrabold text-sm text-[#fa6666] block mb-1">
-                  ⏰ TRẬN ĐẤU KẾT THÚC DO HẾT THỜI GIAN
-                </span>
-                <p className="text-xs text-[#bababa]">
-                  {timeoutWinner === 'w' ? 'Bên Trắng thắng do Đen bị cờ hết giờ.' : 'Bên Đen thắng do Trắng bị cờ hết giờ.'}
-                </p>
-                <button
-                  onClick={() => handleSetupUnranked('pve')}
-                  className="mt-3 bg-[#403d39] hover:bg-[#524e49] px-3 py-1 text-xs rounded text-white font-bold"
-                >
-                  Chơi ván mới
-                </button>
-              </div>
-            )}
-
-            {gameState.isStalemate && (
-              <div className="p-3 bg-[#403d39] rounded-lg text-center text-xs text-[#bababa]">
-                <span className="font-bold text-white block">HÒA CỜ (STALEMATE)</span>
-                <p>Không còn nước đi hợp lệ nào. Ván đấu kết thúc hòa bình.</p>
-              </div>
-            )}
-
-            <div className="bg-[#262421] p-3 rounded-lg border border-[#363431] flex flex-wrap items-center justify-between gap-3 text-xs">
-              
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[#bababa] font-medium text-[11px]">Màu Bàn:</span>
-                  <div className="flex gap-1">
-                    {(['emerald', 'classic', 'velvet', 'obsidian'] as const).map(t => (
-                      <button
-                        key={t}
-                        onClick={() => setBoardTheme(t)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize transition ${boardTheme === t ? 'bg-[#81b64c] text-white shadow' : 'bg-[#1e1c18] text-[#bababa] hover:text-white'}`}
-                      >
-                        {t === 'emerald' ? 'Xanh Lục' : t === 'classic' ? 'Gỗ Gõ' : t === 'velvet' ? 'Xanh Lam' : 'Đá Xám'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5 border-l border-[#363431] pl-3">
-                  <span className="text-[#bababa] font-medium text-[11px]">Quân cờ:</span>
-                  <div className="flex gap-1">
-                    {(['modern', 'minimal', 'royal'] as const).map(pt => (
-                      <button
-                        key={pt}
-                        onClick={() => setPieceTheme(pt)}
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold capitalize transition ${pieceTheme === pt ? 'bg-[#f0c15c] text-[#1e1c18] shadow font-extrabold' : 'bg-[#1e1c18] text-[#bababa] hover:text-white'}`}
-                      >
-                        {pt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={triggerGrandmasterHint}
-                  disabled={gameState.isCheckmate || gameState.isStalemate || isAiThinking || viewingSnapshotIndex !== null}
-                  className="px-2.5 py-1 bg-[#1fb3c4] hover:bg-[#1fa1b0] disabled:opacity-40 text-white font-bold rounded flex items-center gap-1 transition text-[11px]"
-                  title="Gợi ý nước đi từ Stockfish"
-                >
-                  <Sparkles className="w-3 h-3" /> Gợi ý AI
-                </button>
-
-                <button
-                  onClick={() => setIsFlipped(!isFlipped)}
-                  className="px-2 py-1 bg-[#403d39] hover:bg-[#524e49] text-white rounded font-medium transition text-[11px]"
-                >
-                  🔄 Lật bàn
-                </button>
-              </div>
-
-            </div>
-
-          </div>
-
-        </main>
-
-        {/* ==================== RIGHT CONFIGURATION TABWORKSPACE ==================== */}
-        <section className="lg:col-span-3 bg-[#262421] p-3 flex flex-col gap-3 max-h-[720px] overflow-y-auto custom-scrollbar">
-          
-          {/* TAB 1: PLAY ONLINE MATCHMAKING DASHBOARD */}
-          {activeTab === 'play_online' && (
-            <div className="space-y-4 animate-fadeIn">
-              <div className="bg-[#1e1c18] p-3 rounded-lg border border-[#363431] text-center">
-                <span className="text-[#81b64c] font-extrabold text-xs block uppercase tracking-wider mb-1">
-                  ⚡ THÁCH ĐẤU TRỰC TUYẾN (ONLINE)
-                </span>
-                <p className="text-[11px] text-[#bababa]">
-                  Ghép trận trực tiếp với cộng đồng người chơi toàn cầu có cùng xếp hạng Elo.
-                </p>
-
-                <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
-                  <button
-                    onClick={() => setTimeControl('bullet')}
-                    className={`p-2 rounded-lg border transition flex flex-col items-center justify-center ${timeControl === 'bullet' ? 'bg-[#81b64c]/20 border-[#81b64c] text-white font-bold' : 'bg-[#302e2b] border-[#403d39] text-[#bababa]'}`}
-                  >
-                    <span className="text-xs font-bold block text-white">1 Phút</span>
-                    <span className="text-[9px] text-[#f0c15c]">Bullet ⚡</span>
-                  </button>
-
-                  <button
-                    onClick={() => setTimeControl('blitz')}
-                    className={`p-2 rounded-lg border transition flex flex-col items-center justify-center ${timeControl === 'blitz' ? 'bg-[#81b64c]/20 border-[#81b64c] text-white font-bold' : 'bg-[#302e2b] border-[#403d39] text-[#bababa]'}`}
-                  >
-                    <span className="text-xs font-bold block text-white">3 Phút</span>
-                    <span className="text-[9px] text-[#81b64c]">Blitz 🔥</span>
-                  </button>
-
-                  <button
-                    onClick={() => setTimeControl('rapid')}
-                    className={`p-2 rounded-lg border transition flex flex-col items-center justify-center ${timeControl === 'rapid' ? 'bg-[#81b64c]/20 border-[#81b64c] text-white font-bold' : 'bg-[#302e2b] border-[#403d39] text-[#bababa]'}`}
-                  >
-                    <span className="text-xs font-bold block text-white">10 Phút</span>
-                    <span className="text-[9px] text-[#1fb3c4]">Rapid ⏳</span>
-                  </button>
-                </div>
-
-                <button
-                  onClick={startOnlineMatchmaking}
-                  disabled={isSearchingOnline}
-                  className="mt-4 w-full bg-[#81b64c] hover:bg-[#96bc4b] disabled:opacity-50 text-white font-extrabold text-sm py-2.5 rounded-lg transition-all shadow-lg uppercase tracking-wide flex items-center justify-center gap-2 animate-pulse"
-                >
-                  {isSearchingOnline ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Đang kết nối...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="w-4 h-4 text-[#f0c15c]" />
-                      <span>Chơi ngay (Play)</span>
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* LIVE CHATBOX CONTAINER */}
-              <div className="bg-[#1e1c18] rounded-lg border border-[#363431] flex flex-col h-[280px]">
-                
-                <div className="bg-[#211f1c] px-3 py-1.5 rounded-t-lg border-b border-[#363431] flex items-center gap-1.5 text-xs font-bold text-[#bababa]">
-                  <MessageSquare className="w-3.5 h-3.5 text-[#f0c15c]" />
-                  <span>Kênh Chat Trực Tiếp</span>
-                </div>
-
-                <div className="flex-1 p-2 overflow-y-auto space-y-2 text-xs font-sans custom-scrollbar">
-                  {chatMessages.length === 0 ? (
-                    <span className="text-slate-600 italic block text-center mt-6 text-[11px]">
-                      Chưa có tin nhắn nào. Bắt đầu ghép đấu để thảo luận với đối phương!
-                    </span>
-                  ) : (
-                    chatMessages.map((msg, idx) => {
-                      const isSystem = msg.sender.includes('Hệ thống');
-                      const isMe = msg.sender === playerUsername;
-
-                      return (
-                        <div key={idx} className={`p-1.5 rounded text-[11px] leading-tight ${
-                          isSystem 
-                            ? 'bg-[#302e2b] text-[#f0c15c] font-medium text-center border border-[#403d39]' 
-                            : isMe 
-                            ? 'bg-[#81b64c]/20 text-[#ebecd0] text-right border-r-2 border-[#81b64c]' 
-                            : 'bg-[#2c2926] text-white text-left border-l-2 border-[#1fb3c4]'
-                        }`}>
-                          {!isSystem && (
-                            <span className="font-bold text-[10px] block text-[#bababa] mb-0.5">
-                              {msg.sender} <span className="text-[8px] font-mono text-[#75726e]">({msg.time})</span>
-                            </span>
-                          )}
-                          <p className="break-words font-sans">{msg.text}</p>
-                        </div>
-                      );
-                    })
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
-
-                <form onSubmit={handleSendChatMessage} className="p-1.5 bg-[#211f1c] rounded-b-lg border-t border-[#363431] flex gap-1">
-                  <input
-                    type="text"
-                    value={customInputMessage}
-                    onChange={(e) => setCustomInputMessage(e.target.value)}
-                    placeholder="Nhập tin nhắn..."
-                    disabled={gameMode !== 'online_simulation' || !currentOpponent}
-                    className="flex-1 bg-[#302e2b] border border-[#403d39] rounded px-2 py-1 text-xs text-white placeholder-[#75726e] focus:outline-none focus:border-[#81b64c]"
-                  />
-                  <button
-                    type="submit"
-                    disabled={gameMode !== 'online_simulation' || !currentOpponent}
-                    className="bg-[#81b64c] hover:bg-[#96bc4b] disabled:opacity-40 text-white px-2.5 rounded transition flex items-center justify-center"
-                  >
-                    <Send className="w-3 h-3" />
-                  </button>
-                </form>
-
-              </div>
-
-              {/* LIVE FULL MOVE LOGS LEADER */}
-              <div className="bg-[#1e1c18] p-3 rounded-lg border border-[#363431]">
-                <span className="text-xs font-bold text-[#bababa] block mb-2 uppercase tracking-wide flex items-center justify-between">
-                  <span>Biên bản Nước đi (SAN)</span>
-                  <span className="text-[10px] bg-[#302e2b] px-1.5 rounded">{gameState.moveHistory.length} bước</span>
-                </span>
-
-                <div className="max-h-[140px] overflow-y-auto space-y-1 pr-1 font-mono text-xs custom-scrollbar">
-                  {gameState.moveHistory.length === 0 ? (
-                    <span className="text-[#75726e] text-[11px] italic block text-center py-4">Chưa đi quân nào.</span>
-                  ) : (
-                    getMovePairs().map((pair, idx) => (
-                      <div key={idx} className="grid grid-cols-12 gap-1 py-0.5 px-1 rounded hover:bg-[#302e2b] transition text-[#c4c4c4]">
-                        <span className="col-span-2 text-[#75726e] font-bold text-right pr-1">{idx + 1}.</span>
-                        
-                        <button
-                          onClick={() => setViewingSnapshotIndex(pair.wIndex)}
-                          className={`col-span-5 text-left px-1 rounded truncate ${viewingSnapshotIndex === pair.wIndex ? 'bg-[#f0c15c] text-[#1e1c18] font-bold' : 'hover:text-white'}`}
-                        >
-                          {pair.whiteString}
-                        </button>
-
-                        {pair.blackString ? (
-                          <button
-                            onClick={() => setViewingSnapshotIndex(pair.bIndex)}
-                            className={`col-span-5 text-left px-1 rounded truncate ${viewingSnapshotIndex === pair.bIndex ? 'bg-[#f0c15c] text-[#1e1c18] font-bold' : 'hover:text-white'}`}
-                          >
-                            {pair.blackString}
-                          </button>
-                        ) : (
-                          <span className="col-span-5 text-[#403d39]">...</span>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-            </div>
-          )}
-
-          {/* NEW TAB 1.5: REMOTE P2P WEBRTC SUITE DOCK */}
-          {activeTab === 'remote_p2p' && (
-            <div className="space-y-4 animate-fadeIn">
-              <div className="bg-[#1e1c18] p-3 rounded-lg border-2 border-[#1fb3c4] space-y-3 text-xs">
-                <div className="flex items-center gap-1.5 text-[#1fb3c4] font-extrabold uppercase tracking-wide text-sm">
-                  <Wifi className="w-4 h-4 animate-pulse" />
-                  <span>PHÒNG ĐẤU P2P TỪ XA (INTERNET)</span>
-                </div>
-                
-                <p className="text-[#bababa] leading-relaxed text-[11px]">
-                  Hai người chơi trên các máy tính/điện thoại khác nhau có thể đồng bộ ván cờ theo thời gian thực nhờ kênh kết nối WebRTC bảo mật.
-                </p>
-
-                {/* Status alerts */}
-                <div className="p-2 bg-[#302e2b] rounded border border-[#403d39] text-center">
-                  <span className="text-[10px] text-[#75726e] block">Trạng thái kết nối:</span>
-                  <span className={`font-mono font-bold uppercase text-xs ${
-                    p2pStatus === 'connected' ? 'text-[#81b64c]' : p2pStatus === 'connecting' ? 'text-[#f0c15c] animate-pulse' : 'text-[#1fb3c4]'
-                  }`}>
-                    {p2pStatus === 'idle' && 'Chưa kết nối'}
-                    {p2pStatus === 'generating' && 'Đang tạo phòng mới...'}
-                    {p2pStatus === 'ready_host' && 'Đã mở phòng - Đợi bạn bè vào'}
-                    {p2pStatus === 'connecting' && 'Đang kết nối tới bạn bè...'}
-                    {p2pStatus === 'connected' && '🟢 ĐÃ KẾT NỐI TỪ XA!'}
-                  </span>
-                </div>
-
-                {p2pError && (
-                  <div className="p-2 bg-[#fa6666]/20 text-[#fa6666] border border-[#fa6666] rounded text-[11px]">
-                    {p2pError}
-                  </div>
-                )}
-
-                {/* Option A: Generate Host Room */}
-                <div className="space-y-2 pt-2 border-t border-[#363431]">
-                  <span className="font-bold text-white block">A. Tạo phòng của bạn (Host):</span>
-                  
-                  {myPeerId ? (
-                    <div className="p-2 bg-[#211f1c] rounded border border-[#f0c15c] text-center">
-                      <span className="text-[10px] text-[#bababa] block mb-0.5">Hãy gửi 4 số này cho bạn của bạn:</span>
-                      
-                      <div className="flex items-center justify-center gap-2 my-1.5">
-                        <span className="text-xl font-mono font-extrabold tracking-widest text-[#f0c15c] bg-[#302e2b] px-3 py-1 rounded border border-[#403d39]">
-                          {myPeerId.replace('chess-vn-', '')}
-                        </span>
-
-                        <button
-                          onClick={copyRoomCodeToClipboard}
-                          className="p-1.5 bg-[#403d39] hover:bg-[#524e49] text-white rounded transition"
-                          title="Sao chép mã"
-                        >
-                          {copiedAlert ? <CheckIcon className="w-4 h-4 text-[#81b64c]" /> : <Copy className="w-4 h-4" />}
-                        </button>
-                      </div>
-
-                      <span className="text-[9px] text-[#1fb3c4] block animate-pulse mt-1">
-                        ⏳ Đang chờ người chơi khác nhập mã để vào phòng...
-                      </span>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={handleCreateRemoteRoom}
-                      disabled={p2pStatus !== 'idle'}
-                      className="w-full bg-[#1fb3c4] hover:bg-[#1fa1b0] disabled:opacity-40 text-white font-bold py-2 rounded transition shadow uppercase text-xs"
-                    >
-                      Tạo Phòng Mới (Lấy Mã Số)
-                    </button>
-                  )}
-                </div>
-
-                {/* Option B: Enter Friend's Room */}
-                <div className="space-y-2 pt-2 border-t border-[#363431]">
-                  <span className="font-bold text-white block">B. Vào phòng bạn bè (Client):</span>
-                  
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      maxLength={4}
-                      value={friendPeerIdInput}
-                      onChange={(e) => setFriendPeerIdInput(e.target.value)}
-                      placeholder="Nhập 4 số..."
-                      className="w-24 bg-[#302e2b] border border-[#403d39] rounded px-2 py-1 text-xs text-center text-[#f0c15c] font-mono font-bold focus:outline-none focus:border-[#1fb3c4]"
-                    />
-                    <button
-                      onClick={handleJoinRemoteRoom}
-                      disabled={!friendPeerIdInput || p2pStatus === 'connecting'}
-                      className="flex-1 bg-[#81b64c] hover:bg-[#96bc4b] disabled:opacity-40 text-white font-bold rounded transition text-xs"
-                    >
-                      {p2pStatus === 'connecting' ? 'Đang kết nối...' : 'Vào Phòng'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Quick Disconnect reset */}
-                {p2pStatus !== 'idle' && (
-                  <button
-                    onClick={() => {
-                      if (p2pConnection) p2pConnection.close();
-                      if (peerInstance) peerInstance.destroy();
-                      setP2pStatus('idle');
-                      setMyPeerId('');
-                      setP2pError('');
-                      handleSetupUnranked('pve');
-                    }}
-                    className="w-full bg-[#363431] hover:bg-[#fa6666] text-[#bababa] hover:text-white py-1 rounded transition text-[10px]"
-                  >
-                    Ngắt kết nối / Hủy thao tác
-                  </button>
-                )}
-
-              </div>
-
-              {/* FOOLPROOF FALLBACK IMPORT/EXPORT IF FIREWALL BLOCKS WEBRTC */}
-              <div className="bg-[#1e1c18] p-3 rounded-lg border border-[#363431] space-y-2 text-xs">
-                <span className="font-bold text-[#f0c15c] block flex items-center gap-1 text-[11px]">
-                  <Users className="w-3.5 h-3.5 text-[#f0c15c]" /> Cờ Tự Đồng Bộ Qua Zalo/Tin Nhắn:
-                </span>
-                <p className="text-[11px] text-[#bababa] leading-snug">
-                  Nếu tường lửa mạng công ty/trường học chặn kết nối PeerJS, hai bạn chỉ cần sao chép nước đi vừa thực hiện để gửi cho nhau:
-                </p>
-
-                <div className="bg-[#262421] p-2 rounded border border-[#403d39]">
-                  <span className="text-[10px] text-[#75726e] block">Mã nước đi cuối cùng của bạn:</span>
-                  <div className="flex gap-1 mt-1">
-                    <input 
-                      type="text" 
-                      readOnly 
-                      value={lastMoveMade?.san || 'Chưa có'} 
-                      className="flex-1 bg-[#302e2b] text-[#81b64c] font-mono font-bold px-2 py-1 rounded text-xs"
-                    />
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(lastMoveMade?.san || '');
-                        alert('Đã sao chép nước đi: ' + (lastMoveMade?.san || ''));
-                      }}
-                      className="bg-[#403d39] px-2 rounded text-white text-xs hover:bg-[#524e49]"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-[#363431]">
-                  <span className="text-[10px] text-[#75726e] block mb-1">Nhập nước đi của bạn bè (Ví dụ: e5, Nf6, O-O):</span>
-                  <div className="flex gap-1">
-                    <input 
-                      type="text" 
-                      placeholder="Gõ nước đi bạn bè gửi..."
-                      id="manual-fallback-input"
-                      className="flex-1 bg-[#302e2b] border border-[#403d39] rounded px-2 py-1 text-xs text-white"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          const val = (e.target as HTMLInputElement).value;
-                          handleApplyMoveStringFallback(val);
-                          (e.target as HTMLInputElement).value = '';
-                        }
-                      }}
-                    />
-                    <button 
-                      onClick={() => {
-                        const inputEl = document.getElementById('manual-fallback-input') as HTMLInputElement;
-                        if (inputEl) {
-                          handleApplyMoveStringFallback(inputEl.value);
-                          inputEl.value = '';
-                        }
-                      }}
-                      className="bg-[#1fb3c4] text-white px-2.5 rounded font-bold hover:bg-[#1fa1b0]"
-                    >
-                      Áp dụng
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* LIVE CHATBOX FOR REMOTE P2P INTERNET PLAYERS */}
-              {p2pStatus === 'connected' && (
-                <div className="bg-[#1e1c18] rounded-lg border border-[#363431] flex flex-col h-[220px]">
-                  <div className="bg-[#211f1c] px-3 py-1 rounded-t-lg border-b border-[#363431] font-bold text-xs text-[#1fb3c4]">
-                    💬 Chat Riêng P2P Từ Xa
-                  </div>
-                  
-                  <div className="flex-1 p-2 overflow-y-auto space-y-1.5 text-xs custom-scrollbar">
-                    {chatMessages.map((msg, idx) => (
-                      <div key={idx} className={`p-1 rounded text-[11px] ${msg.sender === playerUsername ? 'bg-[#81b64c]/20 text-right text-[#ebecd0]' : 'bg-[#2c2926] text-left text-white'}`}>
-                        <span className="font-bold text-[9px] text-[#bababa] block">{msg.sender}</span>
-                        <p>{msg.text}</p>
-                      </div>
-                    ))}
-                    <div ref={chatEndRef} />
-                  </div>
-
-                  <form onSubmit={handleSendChatMessage} className="p-1 bg-[#211f1c] flex gap-1">
-                    <input
-                      type="text"
-                      value={customInputMessage}
-                      onChange={(e) => setCustomInputMessage(e.target.value)}
-                      placeholder="Gõ gửi bạn bè..."
-                      className="flex-1 bg-[#302e2b] rounded px-2 py-0.5 text-xs text-white"
-                    />
-                    <button type="submit" className="bg-[#1fb3c4] text-white px-2 rounded">
-                      Gửi
-                    </button>
-                  </form>
-                </div>
-              )}
-
-            </div>
-          )}
-
-          {/* TAB 2: INTERACTIVE LESSONS LIST WORKSPACE */}
-          {activeTab === 'lessons' && (
-            <div className="space-y-3 animate-fadeIn">
-              <span className="text-xs font-bold text-[#81b64c] uppercase tracking-wide block">
-                📘 Hướng dẫn tương tác từ Đại Kiện Tướng
-              </span>
-              <p className="text-[11px] text-[#bababa] leading-tight">
-                Hoàn thành các bước đi chiến thuật được gợi ý để cải thiện tư duy khai cuộc và kết liễu.
-              </p>
-
-              <div className="space-y-2 mt-2">
-                {CHESS_LESSONS.map((l) => {
-                  const isCurrent = activeLesson?.id === l.id && gameMode === 'lesson';
-
-                  return (
-                    <div 
-                      key={l.id}
-                      className={`p-3 rounded-lg border transition cursor-pointer ${isCurrent ? 'bg-[#302e2b] border-[#1fb3c4]' : 'bg-[#1e1c18] border-[#363431] hover:border-[#524e49]'}`}
-                      onClick={() => handleStartLesson(l)}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold text-white flex items-center gap-1">
-                          {l.title}
-                        </span>
-                        <span className="text-[9px] font-mono font-bold bg-[#403d39] text-[#f0c15c] px-1.5 py-0.5 rounded">
-                          {l.category}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-[#bababa] leading-snug mb-2">{l.description}</p>
-                      
-                      <button className={`w-full py-1 text-[11px] font-bold rounded transition ${isCurrent ? 'bg-[#1fb3c4] text-white' : 'bg-[#302e2b] text-[#bababa] hover:text-white'}`}>
-                        {isCurrent ? '● Đang luyện tập bài này' : 'Bắt đầu bài học'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: PUZZLE RUSH HIGH SCORE SUITE */}
-          {activeTab === 'puzzle_rush' && (
-            <div className="space-y-3 animate-fadeIn">
-              <div className="bg-[#1e1c18] p-3 rounded-lg border border-[#363431] text-center">
-                <span className="text-xs font-extrabold text-[#f0c15c] block uppercase tracking-wide mb-1">
-                  ⚡ THỬ THÁCH PUZZLE RUSH
-                </span>
-                <p className="text-[11px] text-[#bababa] mb-3">
-                  Giải nhanh liên tiếp các thế cờ chiến thuật dứt điểm (Chiếu bí sau 1 hoặc 2 nước). Bạn được phép mắc tối đa 3 lỗi sai!
-                </p>
-
-                <button
-                  onClick={handleStartPuzzleRush}
-                  className="w-full bg-[#f0c15c] hover:bg-[#f2cb72] text-[#1e1c18] font-extrabold text-xs py-2 rounded-lg transition shadow uppercase"
-                >
-                  Bắt đầu đợt Rush mới
-                </button>
-              </div>
-
-              {gameMode === 'puzzle_rush' ? (
-                <div className="p-3 bg-[#302e2b] rounded-lg border border-[#f0c15c] space-y-2">
-                  <span className="text-xs font-bold text-white block">Tình trạng thi đấu:</span>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-[#bababa]">Điểm chuỗi hiện tại:</span>
-                    <span className="font-mono font-extrabold text-[#81b64c] text-sm">{puzzleRushScore}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="text-[#bababa]">Loại chiến thuật:</span>
-                    <span className="font-mono font-bold text-[#1fb3c4]">
-                      {currentRushType === 'mateIn1' ? '⚡ Chiếu bí trong 1 nước' : currentRushType === 'mateIn2' ? '🧠 Chiếu bí trong 2 nước' : '🏰 Cờ tàn xe'}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-[#f0c15c] italic pt-1 border-t border-[#403d39]">
-                    Gợi ý: Quan sát kỹ hướng chiếu của Hậu và Xe để bao vây Vua.
-                  </p>
-                </div>
-              ) : (
-                <div className="text-center text-[11px] text-[#75726e] italic mt-4">
-                  Bấm bắt đầu ở trên để kích hoạt chế độ tính điểm.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TAB 4: OFFLINE PRACTICE COMPUTER AI */}
-          {activeTab === 'vs_computer' && (
-            <div className="space-y-3 animate-fadeIn">
-              <span className="text-xs font-bold text-[#81b64c] block uppercase tracking-wide">
-                🤖 Đấu luyện tập với Stockfish Offline
-              </span>
-              <p className="text-[11px] text-[#bababa]">
-                Thiết lập mức độ khó cố định để phân tích các biến thể khai cuộc tự do.
-              </p>
-
-              <div className="bg-[#1e1c18] p-3 rounded-lg border border-[#363431] space-y-3">
-                <div>
-                  <label className="text-xs font-semibold text-[#bababa] block mb-1">Mức độ thông minh của máy:</label>
-                  <select
-                    value={aiDifficulty}
-                    onChange={(e) => setAiDifficulty(e.target.value as any)}
-                    className="w-full bg-[#302e2b] border border-[#403d39] rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-[#81b64c]"
-                  >
-                    <option value="beginner">Mức 1: Người mới tập (Beginner)</option>
-                    <option value="intermediate">Mức 2: Trung cấp (Intermediate)</option>
-                    <option value="expert">Mức 3: Đại Kiện Tướng (Minimax Search)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-[#bababa] block mb-1">Chọn quân của bạn:</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => { setPlayerColor('w'); setIsFlipped(false); }}
-                      className={`py-1 rounded text-xs font-bold border transition ${playerColor === 'w' && !isFlipped ? 'bg-white text-[#1e1c18] border-white' : 'bg-[#302e2b] text-[#bababa] border-[#403d39]'}`}
-                    >
-                      ⬜ Cầm Trắng
-                    </button>
-                    <button
-                      onClick={() => { setPlayerColor('b'); setIsFlipped(true); }}
-                      className={`py-1 rounded text-xs font-bold border transition ${playerColor === 'b' && isFlipped ? 'bg-[#1e1c18] text-white border-[#81b64c]' : 'bg-[#302e2b] text-[#bababa] border-[#403d39]'}`}
-                    >
-                      ⬛ Cầm Đen
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => handleSetupUnranked('pve')}
-                  className="w-full bg-[#81b64c] hover:bg-[#96bc4b] text-white font-bold text-xs py-2 rounded transition shadow"
-                >
-                  Bắt đầu ván mới vs Máy
-                </button>
-              </div>
-
-              <div className="bg-[#1e1c18] p-3 rounded-lg border border-[#363431] text-xs">
-                <span className="font-bold text-[#f0c15c] block mb-1">Chơi 2 người chung máy (Pass & Play):</span>
-                <button
-                  onClick={() => handleSetupUnranked('pvp')}
-                  className="w-full bg-[#403d39] hover:bg-[#524e49] text-white py-1.5 rounded text-[11px] font-bold transition"
-                >
-                  👥 Kích hoạt Pass & Play
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: STREAMER CHANNELS EMBED */}
-          {activeTab === 'streamers' && (
-            <div className="space-y-3 animate-fadeIn">
-              <span className="text-xs font-bold text-[#fa6666] uppercase tracking-wide block flex items-center gap-1">
-                <Tv className="w-3.5 h-3.5 text-[#fa6666]" /> Kênh phát sóng trực tiếp
-              </span>
-              <p className="text-[11px] text-[#bababa]">
-                Theo dõi các Đại Kiện Tướng và Streamer cộng đồng đang thi đấu trên hệ thống.
-              </p>
-
-              <div className="space-y-2 mt-2">
-                {LIVE_STREAMERS.map((st, idx) => (
-                  <div key={idx} className="p-2.5 bg-[#1e1c18] rounded-lg border border-[#363431] hover:bg-[#302e2b] transition">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-1.5 font-bold text-white text-xs">
-                        <span className="text-lg">{st.avatar}</span>
-                        <div>
-                          <span className="block leading-tight">{st.name}</span>
-                          <span className="text-[9px] text-[#75726e] font-mono font-normal">{st.handle}</span>
-                        </div>
-                      </div>
-                      <span className="bg-[#fa6666] text-white text-[9px] font-bold px-1.5 py-0.5 rounded animate-pulse">
-                        LIVE ({st.viewers.toLocaleString()} view)
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-[#ebecd0] font-medium leading-snug truncate">{st.title}</p>
-                    
-                    <div className="flex gap-1 mt-1.5">
-                      {st.tags.map((tg, i) => (
-                        <span key={i} className="text-[9px] bg-[#403d39] text-[#bababa] px-1 rounded">
-                          #{tg}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* TAB 6: POST GAME EVALUATION ANALYSIS */}
-          {activeTab === 'analysis' && (
-            <div className="space-y-3 animate-fadeIn">
-              <AnalysisPanel 
-                moveHistory={gameState.moveHistory}
-                currentScore={currentScore}
-                isCheckmate={gameState.isCheckmate}
-                playerRating={playerRating}
-              />
-            </div>
-          )}
-
-          {/* Captured Pieces Material Showcase Ledger */}
-          <div className="mt-auto bg-[#1e1c18] p-2.5 rounded-lg border border-[#363431] text-xs space-y-2">
-            <span className="font-bold text-[#bababa] block text-[11px] uppercase tracking-wider">
-              Tổn thất Lực lượng (Material Balance)
-            </span>
-
-            <div className="bg-[#262421] p-1.5 rounded min-h-[36px] flex flex-wrap items-center gap-0.5">
-              <span className="text-[9px] font-bold text-[#75726e] block w-full">Trắng mất:</span>
-              {gameState.capturedWhite.length === 0 ? (
-                <span className="text-[#75726e] text-[10px] italic">Chưa mất quân nào</span>
-              ) : (
-                gameState.capturedWhite.map((p, idx) => (
-                  <div key={idx} className="bg-[#302e2b] rounded p-0.5" title="Quân Trắng">
-                    <ChessPiece type={p.type} color="w" size={20} themeStyle={pieceTheme} />
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="bg-[#262421] p-1.5 rounded min-h-[36px] flex flex-wrap items-center gap-0.5">
-              <span className="text-[9px] font-bold text-[#75726e] block w-full">Đen mất:</span>
-              {gameState.capturedBlack.length === 0 ? (
-                <span className="text-[#75726e] text-[10px] italic">Chưa mất quân nào</span>
-              ) : (
-                gameState.capturedBlack.map((p, idx) => (
-                  <div key={idx} className="bg-[#302e2b] rounded p-0.5" title="Quân Đen">
-                    <ChessPiece type={p.type} color="b" size={20} themeStyle={pieceTheme} />
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-        </section>
-
       </div>
+    );
+  }
 
-      {/* Global Bottom Footer Disclaimer */}
-      <footer className="bg-[#1e1c18] border-t border-[#363431] mt-8 py-4 px-4 text-center text-xs text-[#75726e]">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="font-medium">
-            ♟️ <strong>Chess.com Premium Dashboard Clone</strong>. Tích hợp Đấu Từ Xa P2P WebRTC & Tự Đồng Bộ Nước Đi.
-          </p>
-          <div className="flex gap-4 text-[11px] text-[#bababa]">
-            <span className="hover:text-white cursor-pointer">🇺🇸 English</span>
-            <span className="text-[#81b64c] font-bold">🇻🇳 Tiếng Việt (Active)</span>
-            <span className="hover:text-white cursor-pointer">Điều khoản</span>
-            <span className="hover:text-white cursor-pointer">Bảo mật</span>
-          </div>
+  /* ĐÃ ĐĂNG NHẬP -> GIAO DIỆN CHÍNH */
+  return (
+    <div style={{ background: C.bg, minHeight: '100vh', fontFamily: "'Inter', sans-serif", color: C.ink, paddingBottom: 70 }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap');
+        .font-display { font-family: 'Baloo 2', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        @keyframes pop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(108,92,231,0.45); } 70% { box-shadow: 0 0 0 12px rgba(108,92,231,0); } 100% { box-shadow: 0 0 0 0 rgba(108,92,231,0); } }
+        @keyframes shakeX { 10%,90% { transform: translateX(-2px);} 20%,80% { transform: translateX(4px);} 30%,50%,70% { transform: translateX(-8px);} 40%,60% { transform: translateX(8px);} }
+        @keyframes slideUp { 0% { transform: translateY(24px); opacity:0;} 100% { transform: translateY(0); opacity:1;} }
+        .anim-pop { animation: pop 0.35s ease; }
+        .anim-pulse { animation: pulseRing 2s infinite; }
+        .anim-shake { animation: shakeX 0.5s ease; }
+        .anim-slideup { animation: slideUp 0.3s ease; }
+        .trail-bg { background-image: repeating-linear-gradient(to bottom, ${C.border} 0 6px, transparent 6px 16px); }
+      `}</style>
+
+      {/* MÀN HÌNH HỌC TẬP */}
+      {screen === 'path' && mainTab === 'learn' && (
+        <PathScreen user={user} completedUnits={completedUnits} isUnlocked={isUnlocked} startUnit={startUnit} onLogout={handleLogout} />
+      )}
+
+      {/* MÀN HÌNH BẢNG XẾP HẠNG */}
+      {screen === 'path' && mainTab === 'leaderboard' && (
+        <LeaderboardScreen user={user} leaderboard={leaderboard} />
+      )}
+
+      {/* CÁC MÀN HÌNH PHỤ TRONG BÀI HỌC */}
+      {screen === 'lesson' && unit && exercise && (
+        <LessonScreen unit={unit} exercise={exercise} exIndex={exIndex} hearts={hearts} selected={selected} setSelected={setSelected} chosen={chosen} setChosen={setChosen} pool={pool} setPool={setPool} optionsPool={optionsPool} feedback={feedback} canCheck={canCheck} onCheck={handleCheck} onContinue={handleContinue} onExit={() => setScreen('path')} />
+      )}
+
+      {screen === 'complete' && unit && (
+        <CompleteScreen unit={unit} lessonXp={lessonXp} user={user} onContinue={() => setScreen('path')} />
+      )}
+
+      {screen === 'gameover' && unit && (
+        <GameOverScreen unit={unit} onRetry={() => { setExIndex(0); setHearts(5); setLessonXp(0); setScreen('lesson'); }} onExit={() => setScreen('path')} />
+      )}
+
+      {/* BOTTOM NAVIGATION STANDARD DUOLINGO */}
+      {screen === 'path' && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `2px solid ${C.border}`, height: 64, display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 100 }}>
+          <button onClick={() => setMainTab('learn')} className="flex flex-col items-center gap-1 font-display" style={{ background: 'none', border: 'none', cursor: 'pointer', color: mainTab === 'learn' ? C.primary : C.inkSoft, fontWeight: 700, fontSize: 12 }}>
+            <Home size={22} color={mainTab === 'learn' ? C.primary : C.inkSoft} fill={mainTab === 'learn' ? C.primarySoft : 'none'} />
+            Bài học
+          </button>
+          <button onClick={() => setMainTab('leaderboard')} className="flex flex-col items-center gap-1 font-display" style={{ background: 'none', border: 'none', cursor: 'pointer', color: mainTab === 'leaderboard' ? C.primary : C.inkSoft, fontWeight: 700, fontSize: 12 }}>
+            <Award size={22} color={mainTab === 'leaderboard' ? C.primary : C.inkSoft} fill={mainTab === 'leaderboard' ? C.goldSoft : 'none'} />
+            Xếp hạng
+          </button>
         </div>
-      </footer>
-
+      )}
     </div>
   );
 }
+
+/* ---------------- PHÂN ĐOẠN MÀN HÌNH NÂNG CẤP ---------------- */
+
+// MÀN HÌNH LỘ TRÌNH (PATH)
+function PathScreen({ user, completedUnits, isUnlocked, startUnit, onLogout }) {
+  const offsets = [0, 48, 80, 48, 0, -48, -80, -48];
+  let lastLevel = null;
+
+  return (
+    <div style={{ maxWidth: 460, margin: '0 auto', paddingBottom: 32 }}>
+      {/* Header */}
+      <div style={{ background: C.surface, borderBottom: `2px solid ${C.border}`, position: 'sticky', top: 0, zIndex: 10 }}>
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span style={{ fontSize: 22 }}>👤</span>
+            <div className="flex flex-col">
+              <span className="font-display font-extrabold text-sm leading-tight">{user.name}</span>
+              <button onClick={onLogout} style={{ fontSize: 10, color: C.error, border: 'none', background: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontWeight: 600 }}>Đăng xuất</button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 font-mono" style={{ background: C.coralSoft, borderRadius: 12, padding: '4px 8px', fontSize: 13, fontWeight: 700, color: C.ink }}><Flame size={15} color={C.coral} fill={C.coral} />{user.streak}</div>
+            <div className="flex items-center gap-1 font-mono" style={{ background: C.goldSoft, borderRadius: 12, padding: '4px 8px', fontSize: 13, fontWeight: 700, color: C.ink }}><Gem size={15} color={C.gold} fill={C.gold} />{user.xp} XP</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Danh sách bài học */}
+      <div style={{ position: 'relative', padding: '24px 20px' }}>
+        <div className="trail-bg" style={{ position: 'absolute', left: '50%', top: 20, bottom: 20, width: 2, transform: 'translateX(-1px)', zIndex: 0 }} />
+        <div className="flex flex-col items-center gap-6" style={{ position: 'relative', zIndex: 1 }}>
+          {UNITS.map((u, i) => {
+            const meta = LEVEL_META[u.level];
+            const showDivider = u.level !== lastLevel;
+            lastLevel = u.level;
+            const unlocked = isUnlocked(i);
+            const completed = completedUnits.has(i);
+            const isCurrent = unlocked && !completed;
+            const offset = offsets[i % offsets.length];
+
+            return (
+              <React.Fragment key={u.id}>
+                {showDivider && (
+                  <div className="flex items-center gap-3 w-full my-2">
+                    <div style={{ flex: 1, height: 2, background: C.border }} />
+                    <span className="font-display text-xs font-bold tracking-wider" style={{ color: meta.color }}>{meta.label}</span>
+                    <div style={{ flex: 1, height: 2, background: C.border }} />
+                  </div>
+                )}
+                <div style={{ transform: `translateX(${offset}px)`, textAlign: 'center' }}>
+                  <button disabled={!unlocked} onClick={() => startUnit(i)} className={`node-btn ${isCurrent ? 'anim-pulse' : ''}`} style={{ width: 68, height: 68, borderRadius: '50%', background: completed ? C.success : unlocked ? meta.color : '#D7D2EA', border: 'none', cursor: unlocked ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: unlocked ? `0 5px 0 ${completed ? '#22935A' : shadeColor(meta.color)}` : `0 5px 0 #C3BEDA`, fontSize: 26 }}>
+                    {completed ? <Star size={26} color="#fff" fill="#fff" /> : unlocked ? <span>{u.icon}</span> : <Lock size={20} color="#fff" />}
+                  </button>
+                  <div className="font-display font-bold text-xs mt-2" style={{ color: unlocked ? C.ink : C.inkSoft, maxWidth: 110 }}>{u.title}</div>
+                </div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// MÀN HÌNH BẢNG XẾP HẠNG (LEADERBOARD)
+function LeaderboardScreen({ user, leaderboard }) {
+  return (
+    <div style={{ maxWidth: 460, margin: '0 auto', padding: '16px' }} className="anim-pop">
+      <div className="flex flex-col items-center text-center gap-2 mb-6 mt-2">
+        <div style={{ width: 60, height: 60, borderRadius: '50%', background: C.goldSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Trophy size={32} color={C.gold} fill={C.gold} />
+        </div>
+        <h2 className="font-display text-xl font-extrabold" style={{ color: C.ink }}>Bảng Xếp Hạng Tuần</h2>
+        <p style={{ color: C.inkSoft, fontSize: 13 }}>Thi đua kiếm XP với các học viên khác</p>
+      </div>
+
+      <div style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 20, overflow: 'hidden' }}>
+        {leaderboard.map((player, index) => {
+          const isTop3 = index < 3;
+          const medals = ['🥇', '🥈', '🥉'];
+          
+          return (
+            <div key={index} className="flex items-center justify-between px-4 py-3.5 border-b last:border-0 transition-all" style={{ background: player.isCurrentUser ? C.primarySoft : 'transparent', borderColor: C.border }}>
+              <div className="flex items-center gap-3">
+                <span className="font-mono font-bold text-center w-6" style={{ fontSize: isTop3 ? 18 : 14, color: isTop3 ? C.gold : C.inkSoft }}>
+                  {isTop3 ? medals[index] : index + 1}
+                </span>
+                <span style={{ fontSize: 22 }}>{player.avatar}</span>
+                <div className="flex flex-col">
+                  <span className="font-display font-bold text-sm" style={{ color: player.isCurrentUser ? C.primaryDark : C.ink }}>
+                    {player.name} {player.isCurrentUser && '(Bạn)'}
+                  </span>
+                </div>
+              </div>
+              <div className="font-mono font-bold text-sm" style={{ color: C.primary }}>
+                {player.xp} XP
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// MÀN HÌNH LÀM BÀI HỌC
+function LessonScreen({ unit, exercise, exIndex, hearts, selected, setSelected, chosen, setChosen, pool, setPool, optionsPool, feedback, canCheck, onCheck, onContinue, onExit }) {
+  const total = unit.exercises.length;
+  const progress = ((exIndex + (feedback ? 1 : 0)) / total) * 100;
+
+  function pickWord(word, idx) {
+    if (feedback) return;
+    setPool((p) => p.filter((_, i) => i !== idx));
+    setChosen((c) => [...c, word]);
+  }
+  function unpickWord(idx) {
+    if (feedback) return;
+    const word = chosen[idx];
+    setChosen((c) => c.filter((_, i) => i !== idx));
+    setPool((p) => [...p, word]);
+  }
+
+  return (
+    <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="flex items-center gap-3 px-4 py-3">
+        <button onClick={onExit} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={24} color={C.inkSoft} /></button>
+        <div style={{ flex: 1, height: 10, background: C.border, borderRadius: 999, overflow: 'hidden' }}>
+          <div style={{ width: `${progress}%`, height: '100%', background: C.success, borderRadius: 999, transition: 'width 0.3s ease' }} />
+        </div>
+        <div className="flex items-center gap-1 font-mono" style={{ fontWeight: 700, color: C.coral }}><Heart size={20} color={C.coral} fill={hearts > 0 ? C.coral : 'none'} />{hearts}</div>
+      </div>
+
+      <div className="px-5 pt-4" style={{ flex: 1 }}>
+        <h2 className="font-display text-lg font-bold mb-4" style={{ color: C.ink }}>{exercise.prompt}</h2>
+
+        {exercise.type === 'mc' && (
+          <div className="flex flex-col gap-3">
+            {optionsPool.map((opt) => (
+              <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
+            ))}
+          </div>
+        )}
+
+        {exercise.type === 'fill_blank' && (
+          <div>
+            <div className="font-mono anim-pop" style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 16, padding: '14px', fontSize: 16, marginBottom: 18, textAlign: 'center', fontWeight: 600 }}>
+              {exercise.template.split('___')[0]}
+              <span style={{ display: 'inline-block', minWidth: 60, borderBottom: `3px solid ${selected ? C.primary : C.border}`, color: C.primary, fontWeight: 800 }}>{selected || '\u00A0'}</span>
+              {exercise.template.split('___')[1]}
+            </div>
+            <div className="flex flex-col gap-3">
+              {optionsPool.map((opt) => (
+                <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {exercise.type === 'listening' && (
+          <div>
+            <div className="flex justify-center mb-6">
+              <button onClick={() => speak(exercise.audioText)} style={{ width: 74, height: 74, borderRadius: '50%', background: C.primary, border: 'none', boxShadow: `0 5px 0 ${C.primaryDark}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Volume2 size={32} color="#fff" /></button>
+            </div>
+            <div className="flex flex-col gap-3">
+              {optionsPool.map((opt) => (
+                <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {exercise.type === 'word_order' && (
+          <div>
+            <div className="flex flex-wrap gap-2" style={{ minHeight: 50, borderBottom: `2px solid ${C.border}`, padding: '6px 4px', marginBottom: 20 }}>
+              {chosen.length === 0 && <span style={{ color: C.inkSoft, fontSize: 13, padding: '6px 0' }}>Chạm vào từ để ghép câu</span>}
+              {chosen.map((w, i) => (
+                <button key={i} onClick={() => unpickWord(i)} className="font-display" style={{ background: C.primarySoft, border: `2px solid ${C.primary}`, color: C.primaryDark, borderRadius: 10, padding: '6px 12px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{w}</button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {pool.map((w, i) => (
+                <button key={i} onClick={() => pickWord(w, i)} disabled={!!feedback} className="font-display" style={{ background: C.surface, border: `2px solid ${C.border}`, color: C.ink, borderRadius: 10, padding: '8px 14px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{w}</button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ borderTop: feedback ? 'none' : `1px solid ${C.border}`, background: feedback === 'correct' ? C.successSoft : feedback === 'wrong' ? C.errorSoft : C.surface, padding: '16px 20px', position: 'sticky', bottom: 0 }} className={feedback ? 'anim-slideup' : ''}>
+        {feedback && (
+          <div className="flex items-center gap-2 mb-3">
+            {feedback === 'correct' ? <Check size={20} color={C.success} /> : <X size={20} color={C.error} />}
+            <span className="font-display font-extrabold text-sm" style={{ color: feedback === 'correct' ? C.success : C.error }}>{feedback === 'correct' ? 'Chính xác!' : 'Chưa đúng rồi'}</span>
+            <span style={{ marginLeft: 'auto', fontSize: 12, color: C.inkSoft }}>Đáp án: {Array.isArray(exercise.answer) ? exercise.answer.join(' ') : exercise.answer}</span>
+          </div>
+        )}
+        <button onClick={feedback ? onContinue : onCheck} disabled={!feedback && !canCheck} className="font-display w-full py-3 rounded-xl border-none text-base font-extrabold text-white" style={{ cursor: (!feedback && !canCheck) ? 'not-allowed' : 'pointer', background: !feedback && !canCheck ? '#C3BEDA' : feedback === 'wrong' ? C.error : C.success, boxShadow: (!feedback && !canCheck) ? 'none' : `0 4px 0 ${feedback === 'wrong' ? '#C43E42' : '#22935A'}` }}>
+          {feedback ? 'TIẾP TỤC' : 'KIỂM TRA'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OptionButton({ label, active, disabled, correct, wrong, onClick }) {
+  let border = C.border, bg = C.surface, color = C.ink;
+  if (active && !correct && !wrong) { border = C.primary; bg = C.primarySoft; color = C.primaryDark; }
+  if (correct) { border = C.success; bg = C.successSoft; color = C.success; }
+  if (wrong) { border = C.error; bg = C.errorSoft; color = C.error; }
+  return (
+    <button onClick={onClick} disabled={disabled} className={`font-display text-left px-4 py-3 rounded-xl border-2 transition-all flex justify-between items-center ${wrong ? 'anim-shake' : ''}`} style={{ borderColor: border, background: bg, color, fontSize: 15, fontWeight: 600, cursor: disabled ? 'default' : 'pointer' }}>
+      {label}
+      {correct && <Check size={18} color={C.success} />}
+      {wrong && <X size={18} color={C.error} />}
+    </button>
+  );
+}
+
+// MÀN HÌNH HOÀN THÀNH BÀI HỌC
+function CompleteScreen({ unit, lessonXp, user, onContinue }) {
+  return (
+    <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+      <div className="anim-pop mb-4" style={{ width: 100, height: 100, borderRadius: '50%', background: C.goldSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={48} color={C.gold} fill={C.gold} /></div>
+      <h1 className="font-display text-2xl font-extrabold mb-1">Xuất sắc hoàn thành!</h1>
+      <p style={{ color: C.inkSoft, fontSize: 14, marginBottom: 24 }}>Bạn đã làm chủ bài "{unit.title}"</p>
+
+      <div className="flex gap-4 mb-8">
+        <div style={{ background: C.goldSoft, borderRadius: 16, padding: '12px', minWidth: 100 }}>
+          <div className="font-mono font-extrabold text-base" style={{ color: C.gold }}>+{lessonXp}</div>
+          <div style={{ fontSize: 11, color: C.inkSoft }}>XP Vừa Nhận</div>
+        </div>
+        <div style={{ background: C.primarySoft, borderRadius: 16, padding: '12px', minWidth: 100 }}>
+          <div className="font-mono font-extrabold text-base" style={{ color: C.primaryDark }}>{user.xp}</div>
+          <div style={{ fontSize: 11, color: C.inkSoft }}>Tổng Điểm XP</div>
+        </div>
+      </div>
+
+      <button onClick={onContinue} className="font-display w-full max-w-xs py-3 rounded-xl border-none text-base font-extrabold text-white" style={{ background: C.success, boxShadow: `0 4px 0 #22935A`, cursor: 'pointer' }}>TIẾP TỤC LỘ TRÌNH</button>
+    </div>
+  );
+}
+
+// MÀN HÌNH THUA CUỘC (GAME OVER)
+function GameOverScreen({ unit, onRetry, onExit }) {
+  return (
+    <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
+      <div className="anim-pop mb-4" style={{ width: 100, height: 100, borderRadius: '50%', background: C.errorSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Heart size={44} color={C.error} /></div>
+      <h1 className="font-display text-2xl font-extrabold mb-1">Hết tim rồi!</h1>
+      <p style={{ color: C.inkSoft, fontSize: 14, marginBottom: 28 }}>Đừng nản chí, hãy ôn luyện lại nhé.</p>
+
+      <button onClick={onRetry} className="font-display w-full max-w-xs py-3 rounded-xl border-none text-base font-extrabold text-white mb-3" style={{ background: C.primary, boxShadow: `0 4px 0 ${C.primaryDark}`, cursor: 'pointer' }}>THỬ LẠI</button>
+      <button onClick={onExit} className="font-display w-full max-w-xs py-3 rounded-xl text-base font-extrabold" style={{ border: `2px solid ${C.border}`, color: C.inkSoft, background: 'transparent', cursor: 'pointer' }}>VỀ TRANG CHỦ</button>
+    </div>
+  );
+}
+
