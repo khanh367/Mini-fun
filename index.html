@@ -1,576 +1,527 @@
-import React, { useState, useEffect } from 'react';
-import { Heart, Flame, Gem, Star, Lock, Check, X, Volume2, Trophy, Home, RotateCcw, Sparkles, LogIn, UserPlus, Mail, ShieldAlert, Award, User } from 'lucide-react';
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EnLingo VN</title>
+    <!-- Tải React và ReactDOM qua CDN -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Tải Babel để trình duyệt hiểu được cú pháp JSX/React ở trên -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tải thư viện Tailwind CSS để xử lý các class như flex, items-center... -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tải Lucide Icons (Dành cho các icon như Heart, Flame, Trophy...) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
 
-/* ---------------------------------------------------------
-   CẤU HÌNH MÀU SẮC & DỮ LIỆU GỐC
---------------------------------------------------------- */
-const C = {
-  bg: '#F5F3FC',
-  ink: '#231A3D',
-  inkSoft: '#5B5279',
-  primary: '#6C5CE7',
-  primaryDark: '#5240C4',
-  primarySoft: '#E8E4FB',
-  coral: '#FF6B5B',
-  coralSoft: '#FFE3DF',
-  gold: '#FFB800',
-  goldSoft: '#FFF2CC',
-  success: '#31B872',
-  successSoft: '#DEF7E9',
-  error: '#FF5A5F',
-  errorSoft: '#FFE2E3',
-  surface: '#FFFFFF',
-  border: '#E4DFF6',
-};
+    <div id="root"></div>
 
-const LEVEL_META = {
-  basic: { label: 'CƠ BẢN', color: C.primary },
-  intermediate: { label: 'TRUNG CẤP', color: C.coral },
-  advanced: { label: 'NÂNG CAO', color: '#B98900' },
-};
+    <!-- Đoạn script này bắt buộc phải có type="text/babel" -->
+    <script type="text/babel">
+        // Khai báo các hook và icon từ thư viện global
+        const { useState, useEffect } = React;
+        const { Heart, Flame, Gem, Star, Lock, Check, X, Volume2, Trophy, Home, RotateCcw, Sparkles, LogIn, UserPlus, Mail, ShieldAlert, Award, User } = Lucide;
 
-const UNITS = [
-  {
-    id: 1, level: 'basic', title: 'Chào hỏi', icon: '👋',
-    exercises: [
-      { type: 'mc', prompt: 'Từ "Xin chào" trong tiếng Anh là gì?', options: ['Hello', 'Goodbye', 'Please', 'Sorry'], answer: 'Hello' },
-      { type: 'word_order', prompt: 'Sắp xếp thành câu đúng nghĩa: "Tôi tên là John"', words: ['My', 'name', 'is', 'John'], answer: ['My', 'name', 'is', 'John'] },
-      { type: 'fill_blank', prompt: 'Điền vào chỗ trống', template: 'How ___ you?', options: ['are', 'is', 'am', 'be'], answer: 'are' },
-      { type: 'listening', prompt: 'Nghe và chọn nghĩa đúng', audioText: 'Goodbye', options: ['Tạm biệt', 'Xin chào', 'Cảm ơn', 'Xin lỗi'], answer: 'Tạm biệt' },
-      { type: 'mc', prompt: 'Từ "Cảm ơn" trong tiếng Anh là gì?', options: ['Thank you', 'Sorry', 'Please', 'Yes'], answer: 'Thank you' },
-    ],
-  },
-  {
-    id: 2, level: 'basic', title: 'Gia đình & Số đếm', icon: '👪',
-    exercises: [
-      { type: 'mc', prompt: 'Từ "Mẹ" trong tiếng Anh là gì?', options: ['Mother', 'Father', 'Sister', 'Brother'], answer: 'Mother' },
-      { type: 'word_order', prompt: 'Sắp xếp: "Đây là bố tôi"', words: ['This', 'is', 'my', 'father'], answer: ['This', 'is', 'my', 'father'] },
-      { type: 'fill_blank', prompt: 'Điền vào chỗ trống', template: 'I have two ___.', options: ['children', 'child', 'childs', 'childrens'], answer: 'children' },
-      { type: 'listening', prompt: 'Nghe và chọn nghĩa đúng', audioText: 'Sister', options: ['Chị/em gái', 'Anh/em trai', 'Bà', 'Ông'], answer: 'Chị/em gái' },
-      { type: 'mc', prompt: 'Số "7" trong tiếng Anh là gì?', options: ['Seven', 'Six', 'Eight', 'Nine'], answer: 'Seven' },
-    ],
-  }
-];
+        const C = {
+          bg: '#F5F3FC', ink: '#231A3D', inkSoft: '#5B5279', primary: '#6C5CE7',
+          primaryDark: '#5240C4', primarySoft: '#E8E4FB', coral: '#FF6B5B',
+          coralSoft: '#FFE3DF', gold: '#FFB800', goldSoft: '#FFF2CC',
+          success: '#31B872', successSoft: '#DEF7E9', error: '#FF5A5F',
+          errorSoft: '#FFE2E3', surface: '#FFFFFF', border: '#E4DFF6',
+        };
 
-// Dữ liệu bảng xếp hạng giả lập ban đầu
-const INITIAL_LEADERBOARD = [
-  { name: 'Nguyễn Văn A', xp: 450, avatar: '🦊', isCurrentUser: false },
-  { name: 'Trần Thị B', xp: 320, avatar: '🐱', isCurrentUser: false },
-  { name: 'Alex Tuan', xp: 280, avatar: '🐼', isCurrentUser: false },
-  { name: 'Hoàng Minh', xp: 150, avatar: '🦁', isCurrentUser: false },
-  { name: 'Linh Chi', xp: 90, avatar: '🐰', isCurrentUser: false },
-];
+        const LEVEL_META = {
+          basic: { label: 'CƠ BẢN', color: C.primary },
+          intermediate: { label: 'TRUNG CẤP', color: C.coral },
+          advanced: { label: 'NÂNG CAO', color: '#B98900' },
+        };
 
-function shuffle(arr) {
-  return [...arr].map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(([, v]) => v);
-}
+        const UNITS = [
+          {
+            id: 1, level: 'basic', title: 'Chào hỏi', icon: '👋',
+            exercises: [
+              { type: 'mc', prompt: 'Từ "Xin chào" trong tiếng Anh là gì?', options: ['Hello', 'Goodbye', 'Please', 'Sorry'], answer: 'Hello' },
+              { type: 'word_order', prompt: 'Sắp xếp thành câu đúng nghĩa: "Tôi tên là John"', words: ['My', 'name', 'is', 'John'], answer: ['My', 'name', 'is', 'John'] },
+              { type: 'fill_blank', prompt: 'Điền vào chỗ trống', template: 'How ___ you?', options: ['are', 'is', 'am', 'be'], answer: 'are' },
+              { type: 'listening', prompt: 'Nghe và chọn nghĩa đúng', audioText: 'Goodbye', options: ['Tạm biệt', 'Xin chào', 'Cảm ơn', 'Xin lỗi'], answer: 'Tạm biệt' },
+              { type: 'mc', prompt: 'Từ "Cảm ơn" trong tiếng Anh là gì?', options: ['Thank you', 'Sorry', 'Please', 'Yes'], answer: 'Thank you' },
+            ],
+          },
+          {
+            id: 2, level: 'basic', title: 'Gia đình & Số đếm', icon: '👪',
+            exercises: [
+              { type: 'mc', prompt: 'Từ "Mẹ" trong tiếng Anh là gì?', options: ['Mother', 'Father', 'Sister', 'Brother'], answer: 'Mother' },
+              { type: 'word_order', prompt: 'Sắp xếp: "Đây là bố tôi"', words: ['This', 'is', 'my', 'father'], answer: ['This', 'is', 'my', 'father'] },
+              { type: 'fill_blank', prompt: 'Điền vào chỗ trống', template: 'I have two ___.', options: ['children', 'child', 'childs', 'childrens'], answer: 'children' },
+              { type: 'listening', prompt: 'Nghe và chọn nghĩa đúng', audioText: 'Sister', options: ['Chị/em gái', 'Anh/em trai', 'Bà', 'Ông'], answer: 'Chị/em gái' },
+              { type: 'mc', prompt: 'Số "7" trong tiếng Anh là gì?', options: ['Seven', 'Six', 'Eight', 'Nine'], answer: 'Seven' },
+            ],
+          }
+        ];
 
-function speak(text) {
-  try {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = 'en-US';
-      u.rate = 0.88;
-      window.speechSynthesis.speak(u);
-    }
-  } catch (e) {}
-}
+        const INITIAL_LEADERBOARD = [
+          { name: 'Nguyễn Văn A', xp: 450, avatar: '🦊', isCurrentUser: false },
+          { name: 'Trần Thị B', xp: 320, avatar: '🐱', isCurrentUser: false },
+          { name: 'Alex Tuan', xp: 280, avatar: '🐼', isCurrentUser: false },
+          { name: 'Hoàng Minh', xp: 150, avatar: '🦁', isCurrentUser: false },
+          { name: 'Linh Chi', xp: 90, avatar: '🐰', isCurrentUser: false },
+        ];
 
-function shadeColor(hex) {
-  const map = { [C.primary]: '#5240C4', [C.coral]: '#E14F42', '#B98900': '#8F6C00' };
-  return map[hex] || '#4A3FB8';
-}
+        function shuffle(arr) {
+          return [...arr].map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+        }
 
-/* ---------------------------------------------------------
-   MAIN COMPONENT
---------------------------------------------------------- */
-export default function EnLingoApp() {
-  // Quản lý Đăng nhập & Auth
-  const [user, setUser] = useState(null); // { email: string, name: string, xp: number, streak: number }
-  const [authTab, setAuthTab] = useState('login'); // login | register
-  const [emailInput, setEmailInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
+        function speak(text) {
+          try {
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+              const u = new SpeechSynthesisUtterance(text);
+              u.lang = 'en-US';
+              u.rate = 0.88;
+              window.speechSynthesis.speak(u);
+            }
+          } catch (e) {}
+        }
 
-  // Điều hướng chính (chỉ hiện khi đã đăng nhập)
-  const [mainTab, setMainTab] = useState('learn'); // learn | leaderboard
+        function shadeColor(hex) {
+          const map = { [C.primary]: '#5240C4', [C.coral]: '#E14F42', '#B98900': '#8F6C00' };
+          return map[hex] || '#4A3FB8';
+        }
 
-  // Trạng thái bài học
-  const [screen, setScreen] = useState('path'); // path | lesson | complete | gameover
-  const [activeUnit, setActiveUnit] = useState(null);
-  const [completedUnits, setCompletedUnits] = useState(new Set());
-  const [hearts, setHearts] = useState(5);
-  const [exIndex, setExIndex] = useState(0);
-  const [lessonXp, setLessonXp] = useState(0);
-  const [feedback, setFeedback] = useState(null); 
-  const [selected, setSelected] = useState(null);
-  const [chosen, setChosen] = useState([]);
-  const [pool, setPool] = useState([]);
-  const [optionsPool, setOptionsPool] = useState([]);
+        // ĐỔI TÊN THÀNH HÀM APP TIÊU CHUẨN
+        function App() {
+          const [user, setUser] = useState(null);
+          const [authTab, setAuthTab] = useState('login');
+          const [emailInput, setEmailInput] = useState('');
+          const [nameInput, setNameInput] = useState('');
+          const [mainTab, setMainTab] = useState('learn');
+          const [screen, setScreen] = useState('path');
+          const [activeUnit, setActiveUnit] = useState(null);
+          const [completedUnits, setCompletedUnits] = useState(new Set());
+          const [hearts, setHearts] = useState(5);
+          const [exIndex, setExIndex] = useState(0);
+          const [lessonXp, setLessonXp] = useState(0);
+          const [feedback, setFeedback] = useState(null); 
+          const [selected, setSelected] = useState(null);
+          const [chosen, setChosen] = useState([]);
+          const [pool, setPool] = useState([]);
+          const [optionsPool, setOptionsPool] = useState([]);
+          const [leaderboard, setLeaderboard] = useState(INITIAL_LEADERBOARD);
 
-  // Bảng xếp hạng động
-  const [leaderboard, setLeaderboard] = useState(INITIAL_LEADERBOARD);
+          const unit = activeUnit !== null ? UNITS[activeUnit] : null;
+          const exercise = unit ? unit.exercises[exIndex] : null;
 
-  const unit = activeUnit !== null ? UNITS[activeUnit] : null;
-  const exercise = unit ? unit.exercises[exIndex] : null;
+          useEffect(() => {
+            if (!user) return;
+            const currentLeaderboard = INITIAL_LEADERBOARD.filter(player => player.name !== user.name);
+            const updated = [
+              ...currentLeaderboard,
+              { name: user.name, xp: user.xp, avatar: '👤', isCurrentUser: true }
+            ].sort((a, b) => b.xp - a.xp);
+            setLeaderboard(updated);
+          }, [user]);
 
-  // Cập nhật bảng xếp hạng mỗi khi XP của user thay đổi
-  useEffect(() => {
-    if (!user) return;
-    const currentLeaderboard = INITIAL_LEADERBOARD.filter(player => player.name !== user.name);
-    const updated = [
-      ...currentLeaderboard,
-      { name: user.name, xp: user.xp, avatar: '👤', isCurrentUser: true }
-    ].sort((a, b) => b.xp - a.xp);
-    setLeaderboard(updated);
-  }, [user]);
+          useEffect(() => {
+            if (screen !== 'lesson' || !exercise) return;
+            setSelected(null);
+            setChosen([]);
+            setFeedback(null);
+            if (exercise.type === 'word_order') {
+              setPool(shuffle(exercise.words));
+            } else {
+              setOptionsPool(shuffle(exercise.options));
+            }
+            if (exercise.type === 'listening') {
+              setTimeout(() => speak(exercise.audioText), 350);
+            }
+          }, [exIndex, activeUnit, screen]);
 
-  useEffect(() => {
-    if (screen !== 'lesson' || !exercise) return;
-    setSelected(null);
-    setChosen([]);
-    setFeedback(null);
-    if (exercise.type === 'word_order') {
-      setPool(shuffle(exercise.words));
-    } else {
-      setOptionsPool(shuffle(exercise.options));
-    }
-    if (exercise.type === 'listening') {
-      setTimeout(() => speak(exercise.audioText), 350);
-    }
-  }, [exIndex, activeUnit, screen]);
+          function handleAuth(e) {
+            e.preventDefault();
+            if (!emailInput || (authTab === 'register' && !nameInput)) return;
+            if (authTab === 'login') {
+              const username = emailInput.split('@')[0];
+              setUser({ email: emailInput, name: username, xp: 120, streak: 3 });
+            } else {
+              setUser({ email: emailInput, name: nameInput, xp: 0, streak: 0 });
+            }
+            setScreen('path');
+          }
 
-  // Xử lý Đăng nhập / Đăng ký giả lập Gmail
-  function handleAuth(e) {
-    e.preventDefault();
-    if (!emailInput || (authTab === 'register' && !nameInput)) return;
+          function handleLogout() {
+            setUser(null); setEmailInput(''); setNameInput(''); setScreen('path'); setMainTab('learn');
+          }
 
-    if (authTab === 'login') {
-      // Giả lập lấy thông tin cũ
-      const username = emailInput.split('@')[0];
-      setUser({ email: emailInput, name: username, xp: 120, streak: 3 });
-    } else {
-      setUser({ email: emailInput, name: nameInput, xp: 0, streak: 0 });
-    }
-    setScreen('path');
-  }
+          function isUnlocked(i) { return i === 0 || completedUnits.has(i - 1); }
 
-  function handleLogout() {
-    setUser(null);
-    setEmailInput('');
-    setNameInput('');
-    setScreen('path');
-    setMainTab('learn');
-  }
+          function startUnit(i) {
+            if (!isUnlocked(i)) return;
+            setActiveUnit(i); setExIndex(0); setHearts(5); setLessonXp(0); setScreen('lesson');
+          }
 
-  function isUnlocked(i) {
-    return i === 0 || completedUnits.has(i - 1);
-  }
+          function handleCheck() {
+            if (!exercise) return;
+            let correct = false;
+            if (exercise.type === 'word_order') {
+              correct = chosen.join(' ') === exercise.answer.join(' ');
+            } else {
+              correct = selected === exercise.answer;
+            }
+            setFeedback(correct ? 'correct' : 'wrong');
+            if (correct) {
+              setUser(prev => ({ ...prev, xp: prev.xp + 10 }));
+              setLessonXp((l) => l + 10);
+            } else {
+              setHearts((h) => Math.max(h - 1, 0));
+            }
+          }
 
-  function startUnit(i) {
-    if (!isUnlocked(i)) return;
-    setActiveUnit(i);
-    setExIndex(0);
-    setHearts(5);
-    setLessonXp(0);
-    setScreen('lesson');
-  }
+          function handleContinue() {
+            if (feedback === 'wrong' && hearts <= 0) {
+              setUser(prev => ({ ...prev, xp: Math.max(prev.xp - lessonXp, 0) }));
+              setScreen('gameover');
+              return;
+            }
+            if (exIndex + 1 < unit.exercises.length) {
+              setExIndex((i) => i + 1);
+            } else {
+              setCompletedUnits((prev) => new Set(prev).add(activeUnit));
+              setUser(prev => ({ ...prev, streak: prev.streak + 1 }));
+              setScreen('complete');
+            }
+          }
 
-  function handleCheck() {
-    if (!exercise) return;
-    let correct = false;
-    if (exercise.type === 'word_order') {
-      correct = chosen.join(' ') === exercise.answer.join(' ');
-    } else {
-      correct = selected === exercise.answer;
-    }
-    setFeedback(correct ? 'correct' : 'wrong');
-    if (correct) {
-      setUser(prev => ({ ...prev, xp: prev.xp + 10 }));
-      setLessonXp((l) => l + 10);
-    } else {
-      setHearts((h) => Math.max(h - 1, 0));
-    }
-  }
+          const canCheck = exercise ? (exercise.type === 'word_order' ? chosen.length === exercise.words.length : !!selected) : false;
 
-  function handleContinue() {
-    if (feedback === 'wrong' && hearts <= 0) {
-      setUser(prev => ({ ...prev, xp: Math.max(prev.xp - lessonXp, 0) }));
-      setScreen('gameover');
-      return;
-    }
-    if (exIndex + 1 < unit.exercises.length) {
-      setExIndex((i) => i + 1);
-    } else {
-      setCompletedUnits((prev) => new Set(prev).add(activeUnit));
-      setUser(prev => ({ ...prev, streak: prev.streak + 1 }));
-      setScreen('complete');
-    }
-  }
-
-  const canCheck = exercise ? (exercise.type === 'word_order' ? chosen.length === exercise.words.length : !!selected) : false;
-
-  /* CHƯA ĐĂNG NHẬP -> HIỆN MÀN HÌNH AUTH */
-  if (!user) {
-    return (
-      <div style={{ background: C.bg, minHeight: '100vh', fontFamily: "'Inter', sans-serif', color: C.ink" }} className="flex flex-col justify-center items-center px-4 py-8">
-        <div style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 24, width: '100%', maxWidth: 400, padding: 28, boxShadow: '0 8px 24px rgba(0,0,0,0.04)' }}>
-          <div className="flex flex-col items-center gap-2 mb-6">
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: C.primary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sparkles size={24} color="#fff" />
-            </div>
-            <h1 className="font-display text-2xl font-extrabold" style={{ color: C.primaryDark }}>EnLingo VN</h1>
-            <p style={{ color: C.inkSoft, fontSize: 14 }}>Học tiếng Anh chuẩn Duolingo</p>
-          </div>
-
-          <div className="flex border-b mb-6" style={{ borderColor: C.border }}>
-            <button onClick={() => setAuthTab('login')} className="flex-1 pb-2 font-display font-bold text-center transition-all" style={{ color: authTab === 'login' ? C.primary : C.inkSoft, borderBottom: authTab === 'login' ? `3px solid ${C.primary}` : 'none' }}>Đăng nhập</button>
-            <button onClick={() => setAuthTab('register')} className="flex-1 pb-2 font-display font-bold text-center transition-all" style={{ color: authTab === 'register' ? C.primary : C.inkSoft, borderBottom: authTab === 'register' ? `3px solid ${C.primary}` : 'none' }}>Đăng ký</button>
-          </div>
-
-          <form onSubmit={handleAuth} className="flex flex-col gap-4">
-            {authTab === 'register' && (
-              <div>
-                <label className="block text-xs font-bold mb-1" style={{ color: C.inkSoft }}>TÊN HIỂN THỊ</label>
-                <div className="relative">
-                  <User size={16} className="absolute left-3 top-3.5" color={C.inkSoft} />
-                  <input required type="text" placeholder="Ví dụ: Alex Tuấn" value={nameInput} onChange={e => setNameInput(e.target.value)} style={{ width: '100%', padding: '10px 12px 10px 36px', border: `2px solid ${C.border}`, borderRadius: 12, outline: 'none' }} />
-                </div>
-              </div>
-            )}
-            <div>
-              <label className="block text-xs font-bold mb-1" style={{ color: C.inkSoft }}>TÀI KHOẢN GMAIL</label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3 top-3.5" color={C.inkSoft} />
-                <input required type="email" placeholder="username@gmail.com" value={emailInput} onChange={e => setEmailInput(e.target.value)} style={{ width: '100%', padding: '10px 12px 10px 36px', border: `2px solid ${C.border}`, borderRadius: 12, outline: 'none' }} />
-              </div>
-            </div>
-
-            <button type="submit" className="font-display flex items-center justify-center gap-2 mt-2" style={{ width: '100%', padding: '12px', background: C.primary, color: '#fff', borderRadius: 12, fontWeight: 700, boxShadow: `0 4px 0 ${C.primaryDark}`, border: 'none', cursor: 'pointer' }}>
-              {authTab === 'login' ? <LogIn size={18} /> : <UserPlus size={18} />}
-              {authTab === 'login' ? 'TIẾP TỤC VỚI GMAIL' : 'TẠO TÀI KHOẢN'}
-            </button>
-          </form>
-
-          <div className="mt-6 flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: C.bg, fontSize: 11, color: C.inkSoft }}>
-            <ShieldAlert size={16} color={C.primary} className="shrink-0" />
-            <span>Hệ thống Demo tự động xác thực Gmail hợp lệ không cần mật khẩu.</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  /* ĐÃ ĐĂNG NHẬP -> GIAO DIỆN CHÍNH */
-  return (
-    <div style={{ background: C.bg, minHeight: '100vh', fontFamily: "'Inter', sans-serif", color: C.ink, paddingBottom: 70 }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap');
-        .font-display { font-family: 'Baloo 2', sans-serif; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
-        @keyframes pop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(108,92,231,0.45); } 70% { box-shadow: 0 0 0 12px rgba(108,92,231,0); } 100% { box-shadow: 0 0 0 0 rgba(108,92,231,0); } }
-        @keyframes shakeX { 10%,90% { transform: translateX(-2px);} 20%,80% { transform: translateX(4px);} 30%,50%,70% { transform: translateX(-8px);} 40%,60% { transform: translateX(8px);} }
-        @keyframes slideUp { 0% { transform: translateY(24px); opacity:0;} 100% { transform: translateY(0); opacity:1;} }
-        .anim-pop { animation: pop 0.35s ease; }
-        .anim-pulse { animation: pulseRing 2s infinite; }
-        .anim-shake { animation: shakeX 0.5s ease; }
-        .anim-slideup { animation: slideUp 0.3s ease; }
-        .trail-bg { background-image: repeating-linear-gradient(to bottom, ${C.border} 0 6px, transparent 6px 16px); }
-      `}</style>
-
-      {/* MÀN HÌNH HỌC TẬP */}
-      {screen === 'path' && mainTab === 'learn' && (
-        <PathScreen user={user} completedUnits={completedUnits} isUnlocked={isUnlocked} startUnit={startUnit} onLogout={handleLogout} />
-      )}
-
-      {/* MÀN HÌNH BẢNG XẾP HẠNG */}
-      {screen === 'path' && mainTab === 'leaderboard' && (
-        <LeaderboardScreen user={user} leaderboard={leaderboard} />
-      )}
-
-      {/* CÁC MÀN HÌNH PHỤ TRONG BÀI HỌC */}
-      {screen === 'lesson' && unit && exercise && (
-        <LessonScreen unit={unit} exercise={exercise} exIndex={exIndex} hearts={hearts} selected={selected} setSelected={setSelected} chosen={chosen} setChosen={setChosen} pool={pool} setPool={setPool} optionsPool={optionsPool} feedback={feedback} canCheck={canCheck} onCheck={handleCheck} onContinue={handleContinue} onExit={() => setScreen('path')} />
-      )}
-
-      {screen === 'complete' && unit && (
-        <CompleteScreen unit={unit} lessonXp={lessonXp} user={user} onContinue={() => setScreen('path')} />
-      )}
-
-      {screen === 'gameover' && unit && (
-        <GameOverScreen unit={unit} onRetry={() => { setExIndex(0); setHearts(5); setLessonXp(0); setScreen('lesson'); }} onExit={() => setScreen('path')} />
-      )}
-
-      {/* BOTTOM NAVIGATION STANDARD DUOLINGO */}
-      {screen === 'path' && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `2px solid ${C.border}`, height: 64, display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 100 }}>
-          <button onClick={() => setMainTab('learn')} className="flex flex-col items-center gap-1 font-display" style={{ background: 'none', border: 'none', cursor: 'pointer', color: mainTab === 'learn' ? C.primary : C.inkSoft, fontWeight: 700, fontSize: 12 }}>
-            <Home size={22} color={mainTab === 'learn' ? C.primary : C.inkSoft} fill={mainTab === 'learn' ? C.primarySoft : 'none'} />
-            Bài học
-          </button>
-          <button onClick={() => setMainTab('leaderboard')} className="flex flex-col items-center gap-1 font-display" style={{ background: 'none', border: 'none', cursor: 'pointer', color: mainTab === 'leaderboard' ? C.primary : C.inkSoft, fontWeight: 700, fontSize: 12 }}>
-            <Award size={22} color={mainTab === 'leaderboard' ? C.primary : C.inkSoft} fill={mainTab === 'leaderboard' ? C.goldSoft : 'none'} />
-            Xếp hạng
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ---------------- PHÂN ĐOẠN MÀN HÌNH NÂNG CẤP ---------------- */
-
-// MÀN HÌNH LỘ TRÌNH (PATH)
-function PathScreen({ user, completedUnits, isUnlocked, startUnit, onLogout }) {
-  const offsets = [0, 48, 80, 48, 0, -48, -80, -48];
-  let lastLevel = null;
-
-  return (
-    <div style={{ maxWidth: 460, margin: '0 auto', paddingBottom: 32 }}>
-      {/* Header */}
-      <div style={{ background: C.surface, borderBottom: `2px solid ${C.border}`, position: 'sticky', top: 0, zIndex: 10 }}>
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span style={{ fontSize: 22 }}>👤</span>
-            <div className="flex flex-col">
-              <span className="font-display font-extrabold text-sm leading-tight">{user.name}</span>
-              <button onClick={onLogout} style={{ fontSize: 10, color: C.error, border: 'none', background: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', fontWeight: 600 }}>Đăng xuất</button>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 font-mono" style={{ background: C.coralSoft, borderRadius: 12, padding: '4px 8px', fontSize: 13, fontWeight: 700, color: C.ink }}><Flame size={15} color={C.coral} fill={C.coral} />{user.streak}</div>
-            <div className="flex items-center gap-1 font-mono" style={{ background: C.goldSoft, borderRadius: 12, padding: '4px 8px', fontSize: 13, fontWeight: 700, color: C.ink }}><Gem size={15} color={C.gold} fill={C.gold} />{user.xp} XP</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Danh sách bài học */}
-      <div style={{ position: 'relative', padding: '24px 20px' }}>
-        <div className="trail-bg" style={{ position: 'absolute', left: '50%', top: 20, bottom: 20, width: 2, transform: 'translateX(-1px)', zIndex: 0 }} />
-        <div className="flex flex-col items-center gap-6" style={{ position: 'relative', zIndex: 1 }}>
-          {UNITS.map((u, i) => {
-            const meta = LEVEL_META[u.level];
-            const showDivider = u.level !== lastLevel;
-            lastLevel = u.level;
-            const unlocked = isUnlocked(i);
-            const completed = completedUnits.has(i);
-            const isCurrent = unlocked && !completed;
-            const offset = offsets[i % offsets.length];
-
+          if (!user) {
             return (
-              <React.Fragment key={u.id}>
-                {showDivider && (
-                  <div className="flex items-center gap-3 w-full my-2">
-                    <div style={{ flex: 1, height: 2, background: C.border }} />
-                    <span className="font-display text-xs font-bold tracking-wider" style={{ color: meta.color }}>{meta.label}</span>
-                    <div style={{ flex: 1, height: 2, background: C.border }} />
+              <div style={{ background: C.bg, minHeight: '100vh', color: C.ink }} className="flex flex-col justify-center items-center px-4 py-8">
+                <div style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 24, width: '100%', maxWidth: 400, padding: 28 }}>
+                  <div className="flex flex-col items-center gap-2 mb-6">
+                    <div style={{ width: 48, height: 48, borderRadius: 14, background: C.primary }} className="flex items-center justify-center">
+                      <Sparkles size={24} color="#fff" />
+                    </div>
+                    <h1 className="font-display text-2xl font-extrabold" style={{ color: C.primaryDark }}>EnLingo VN</h1>
+                    <p style={{ color: C.inkSoft, fontSize: 14 }}>Học tiếng Anh chuẩn Duolingo</p>
                   </div>
-                )}
-                <div style={{ transform: `translateX(${offset}px)`, textAlign: 'center' }}>
-                  <button disabled={!unlocked} onClick={() => startUnit(i)} className={`node-btn ${isCurrent ? 'anim-pulse' : ''}`} style={{ width: 68, height: 68, borderRadius: '50%', background: completed ? C.success : unlocked ? meta.color : '#D7D2EA', border: 'none', cursor: unlocked ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: unlocked ? `0 5px 0 ${completed ? '#22935A' : shadeColor(meta.color)}` : `0 5px 0 #C3BEDA`, fontSize: 26 }}>
-                    {completed ? <Star size={26} color="#fff" fill="#fff" /> : unlocked ? <span>{u.icon}</span> : <Lock size={20} color="#fff" />}
-                  </button>
-                  <div className="font-display font-bold text-xs mt-2" style={{ color: unlocked ? C.ink : C.inkSoft, maxWidth: 110 }}>{u.title}</div>
-                </div>
-              </React.Fragment>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// MÀN HÌNH BẢNG XẾP HẠNG (LEADERBOARD)
-function LeaderboardScreen({ user, leaderboard }) {
-  return (
-    <div style={{ maxWidth: 460, margin: '0 auto', padding: '16px' }} className="anim-pop">
-      <div className="flex flex-col items-center text-center gap-2 mb-6 mt-2">
-        <div style={{ width: 60, height: 60, borderRadius: '50%', background: C.goldSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Trophy size={32} color={C.gold} fill={C.gold} />
-        </div>
-        <h2 className="font-display text-xl font-extrabold" style={{ color: C.ink }}>Bảng Xếp Hạng Tuần</h2>
-        <p style={{ color: C.inkSoft, fontSize: 13 }}>Thi đua kiếm XP với các học viên khác</p>
-      </div>
+                  <div className="flex border-b mb-6" style={{ borderColor: C.border }}>
+                    <button onClick={() => setAuthTab('login')} className="flex-1 pb-2 font-bold text-center" style={{ color: authTab === 'login' ? C.primary : C.inkSoft, borderBottom: authTab === 'login' ? `3px solid ${C.primary}` : 'none' }}>Đăng nhập</button>
+                    <button onClick={() => setAuthTab('register')} className="flex-1 pb-2 font-bold text-center" style={{ color: authTab === 'register' ? C.primary : C.inkSoft, borderBottom: authTab === 'register' ? `3px solid ${C.primary}` : 'none' }}>Đăng ký</button>
+                  </div>
 
-      <div style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 20, overflow: 'hidden' }}>
-        {leaderboard.map((player, index) => {
-          const isTop3 = index < 3;
-          const medals = ['🥇', '🥈', '🥉'];
-          
-          return (
-            <div key={index} className="flex items-center justify-between px-4 py-3.5 border-b last:border-0 transition-all" style={{ background: player.isCurrentUser ? C.primarySoft : 'transparent', borderColor: C.border }}>
-              <div className="flex items-center gap-3">
-                <span className="font-mono font-bold text-center w-6" style={{ fontSize: isTop3 ? 18 : 14, color: isTop3 ? C.gold : C.inkSoft }}>
-                  {isTop3 ? medals[index] : index + 1}
-                </span>
-                <span style={{ fontSize: 22 }}>{player.avatar}</span>
-                <div className="flex flex-col">
-                  <span className="font-display font-bold text-sm" style={{ color: player.isCurrentUser ? C.primaryDark : C.ink }}>
-                    {player.name} {player.isCurrentUser && '(Bạn)'}
-                  </span>
+                  <form onSubmit={handleAuth} className="flex flex-col gap-4">
+                    {authTab === 'register' && (
+                      <div>
+                        <label className="block text-xs font-bold mb-1" style={{ color: C.inkSoft }}>TÊN HIỂN THỊ</label>
+                        <div className="relative">
+                          <User size={16} className="absolute left-3 top-3.5" color={C.inkSoft} />
+                          <input required type="text" placeholder="Ví dụ: Alex Tuấn" value={nameInput} onChange={e => setNameInput(e.target.value)} style={{ width: '100%', padding: '10px 12px 10px 36px', border: `2px solid ${C.border}`, borderRadius: 12, outline: 'none' }} />
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-xs font-bold mb-1" style={{ color: C.inkSoft }}>TÀI KHOẢN GMAIL</label>
+                      <div className="relative">
+                        <Mail size={16} className="absolute left-3 top-3.5" color={C.inkSoft} />
+                        <input required type="email" placeholder="username@gmail.com" value={emailInput} onChange={e => setEmailInput(e.target.value)} style={{ width: '100%', padding: '10px 12px 10px 36px', border: `2px solid ${C.border}`, borderRadius: 12, outline: 'none' }} />
+                      </div>
+                    </div>
+
+                    <button type="submit" className="flex items-center justify-center gap-2 mt-2" style={{ width: '100%', padding: '12px', background: C.primary, color: '#fff', borderRadius: 12, fontWeight: 700, boxShadow: `0 4px 0 ${C.primaryDark}`, border: 'none', cursor: 'pointer' }}>
+                      {authTab === 'login' ? <LogIn size={18} /> : <UserPlus size={18} />}
+                      {authTab === 'login' ? 'TIẾP TỤC VỚI GMAIL' : 'TẠO TÀI KHOẢN'}
+                    </button>
+                  </form>
                 </div>
               </div>
-              <div className="font-mono font-bold text-sm" style={{ color: C.primary }}>
-                {player.xp} XP
+            );
+          }
+
+          return (
+            <div style={{ background: C.bg, minHeight: '100vh', color: C.ink, paddingBottom: 70 }}>
+              <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap');
+                .font-display { font-family: 'Baloo 2', sans-serif; }
+                .font-mono { font-family: 'JetBrains Mono', monospace; }
+                @keyframes pop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+                @keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(108,92,231,0.45); } 70% { box-shadow: 0 0 0 12px rgba(108,92,231,0); } 100% { box-shadow: 0 0 0 0 rgba(108,92,231,0); } }
+                @keyframes shakeX { 10%,90% { transform: translateX(-2px);} 20%,80% { transform: translateX(4px);} 30%,50%,70% { transform: translateX(-8px);} 40%,60% { transform: translateX(8px);} }
+                @keyframes slideUp { 0% { transform: translateY(24px); opacity:0;} 100% { transform: translateY(0); opacity:1;} }
+                .anim-pop { animation: pop 0.35s ease; }
+                .anim-pulse { animation: pulseRing 2s infinite; }
+                .anim-shake { animation: shakeX 0.5s ease; }
+                .anim-slideup { animation: slideUp 0.3s ease; }
+                .trail-bg { background-image: repeating-linear-gradient(to bottom, ${C.border} 0 6px, transparent 6px 16px); }
+              `}</style>
+
+              {screen === 'path' && mainTab === 'learn' && (
+                <PathScreen user={user} completedUnits={completedUnits} isUnlocked={isUnlocked} startUnit={startUnit} onLogout={handleLogout} />
+              )}
+
+              {screen === 'path' && mainTab === 'leaderboard' && (
+                <LeaderboardScreen user={user} leaderboard={leaderboard} />
+              )}
+
+              {screen === 'lesson' && unit && exercise && (
+                <LessonScreen unit={unit} exercise={exercise} exIndex={exIndex} hearts={hearts} selected={selected} setSelected={setSelected} chosen={chosen} setChosen={setChosen} pool={pool} setPool={setPool} optionsPool={optionsPool} feedback={feedback} canCheck={canCheck} onCheck={handleCheck} onContinue={handleContinue} onExit={() => setScreen('path')} />
+              )}
+
+              {screen === 'complete' && unit && (
+                <CompleteScreen unit={unit} lessonXp={lessonXp} user={user} onContinue={() => setScreen('path')} />
+              )}
+
+              {screen === 'gameover' && unit && (
+                <GameOverScreen unit={unit} onRetry={() => { setExIndex(0); setHearts(5); setLessonXp(0); setScreen('lesson'); }} onExit={() => setScreen('path')} />
+              )}
+
+              {screen === 'path' && (
+                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `2px solid ${C.border}`, height: 64 }} className="flex justify-around items-center z-50">
+                  <button onClick={() => setMainTab('learn')} className="flex flex-col items-center gap-1 font-display" style={{ background: 'none', border: 'none', cursor: 'pointer', color: mainTab === 'learn' ? C.primary : C.inkSoft, fontWeight: 700, fontSize: 12 }}>
+                    <Home size={22} color={mainTab === 'learn' ? C.primary : C.inkSoft} fill={mainTab === 'learn' ? C.primarySoft : 'none'} />
+                    Bài học
+                  </button>
+                  <button onClick={() => setMainTab('leaderboard')} className="flex flex-col items-center gap-1 font-display" style={{ background: 'none', border: 'none', cursor: 'pointer', color: mainTab === 'leaderboard' ? C.primary : C.inkSoft, fontWeight: 700, fontSize: 12 }}>
+                    <Award size={22} color={mainTab === 'leaderboard' ? C.primary : C.inkSoft} fill={mainTab === 'leaderboard' ? C.goldSoft : 'none'} />
+                    Xếp hạng
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        function PathScreen({ user, completedUnits, isUnlocked, startUnit, onLogout }) {
+          const offsets = [0, 48, 80, 48, 0, -48, -80, -48];
+          let lastLevel = null;
+          return (
+            <div style={{ maxWidth: 460, margin: '0 auto', paddingBottom: 32 }}>
+              <div style={{ background: C.surface, borderBottom: `2px solid ${C.border}`, position: 'sticky', top: 0, zIndex: 10 }}>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span style={{ fontSize: 22 }}>👤</span>
+                    <div className="flex flex-col">
+                      <span className="font-display font-extrabold text-sm leading-tight">{user.name}</span>
+                      <button onClick={onLogout} style={{ fontSize: 10, color: C.error, border: 'none', background: 'none', padding: 0, cursor: 'pointer' }} className="text-left font-semibold">Đăng xuất</button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 font-mono" style={{ background: C.coralSoft, borderRadius: 12, padding: '4px 8px', fontSize: 13, fontWeight: 700, color: C.ink }}><Flame size={15} color={C.coral} fill={C.coral} />{user.streak}</div>
+                    <div className="flex items-center gap-1 font-mono" style={{ background: C.goldSoft, borderRadius: 12, padding: '4px 8px', fontSize: 13, fontWeight: 700, color: C.ink }}><Gem size={15} color={C.gold} fill={C.gold} />{user.xp} XP</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ position: 'relative', padding: '24px 20px' }}>
+                <div className="trail-bg" style={{ position: 'absolute', left: '50%', top: 20, bottom: 20, width: 2, transform: 'translateX(-1px)', zIndex: 0 }} />
+                <div className="flex flex-col items-center gap-6 relative z-1">
+                  {UNITS.map((u, i) => {
+                    const meta = LEVEL_META[u.level];
+                    const showDivider = u.level !== lastLevel;
+                    lastLevel = u.level;
+                    const unlocked = isUnlocked(i);
+                    const completed = completedUnits.has(i);
+                    const isCurrent = unlocked && !completed;
+                    const offset = offsets[i % offsets.length];
+                    return (
+                      <React.Fragment key={u.id}>
+                        {showDivider && (
+                          <div className="flex items-center gap-3 w-full my-2">
+                            <div style={{ flex: 1, height: 2, background: C.border }} />
+                            <span className="font-display text-xs font-bold tracking-wider" style={{ color: meta.color }}>{meta.label}</span>
+                            <div style={{ flex: 1, height: 2, background: C.border }} />
+                          </div>
+                        )}
+                        <div style={{ transform: `translateX(${offset}px)`, textAlign: 'center' }}>
+                          <button disabled={!unlocked} onClick={() => startUnit(i)} className={`node-btn ${isCurrent ? 'anim-pulse' : ''}`} style={{ width: 68, height: 68, borderRadius: '50%', background: completed ? C.success : unlocked ? meta.color : '#D7D2EA', border: 'none', cursor: unlocked ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: unlocked ? `0 5px 0 ${completed ? '#22935A' : shadeColor(meta.color)}` : `0 5px 0 #C3BEDA`, fontSize: 26 }}>
+                            {completed ? <Star size={26} color="#fff" fill="#fff" /> : unlocked ? <span>{u.icon}</span> : <Lock size={20} color="#fff" />}
+                          </button>
+                          <div className="font-display font-bold text-xs mt-2" style={{ color: unlocked ? C.ink : C.inkSoft, maxWidth: 110 }}>{u.title}</div>
+                        </div>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           );
-        })}
-      </div>
-    </div>
-  );
-}
+        }
 
-// MÀN HÌNH LÀM BÀI HỌC
-function LessonScreen({ unit, exercise, exIndex, hearts, selected, setSelected, chosen, setChosen, pool, setPool, optionsPool, feedback, canCheck, onCheck, onContinue, onExit }) {
-  const total = unit.exercises.length;
-  const progress = ((exIndex + (feedback ? 1 : 0)) / total) * 100;
-
-  function pickWord(word, idx) {
-    if (feedback) return;
-    setPool((p) => p.filter((_, i) => i !== idx));
-    setChosen((c) => [...c, word]);
-  }
-  function unpickWord(idx) {
-    if (feedback) return;
-    const word = chosen[idx];
-    setChosen((c) => c.filter((_, i) => i !== idx));
-    setPool((p) => [...p, word]);
-  }
-
-  return (
-    <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div className="flex items-center gap-3 px-4 py-3">
-        <button onClick={onExit} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={24} color={C.inkSoft} /></button>
-        <div style={{ flex: 1, height: 10, background: C.border, borderRadius: 999, overflow: 'hidden' }}>
-          <div style={{ width: `${progress}%`, height: '100%', background: C.success, borderRadius: 999, transition: 'width 0.3s ease' }} />
-        </div>
-        <div className="flex items-center gap-1 font-mono" style={{ fontWeight: 700, color: C.coral }}><Heart size={20} color={C.coral} fill={hearts > 0 ? C.coral : 'none'} />{hearts}</div>
-      </div>
-
-      <div className="px-5 pt-4" style={{ flex: 1 }}>
-        <h2 className="font-display text-lg font-bold mb-4" style={{ color: C.ink }}>{exercise.prompt}</h2>
-
-        {exercise.type === 'mc' && (
-          <div className="flex flex-col gap-3">
-            {optionsPool.map((opt) => (
-              <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
-            ))}
-          </div>
-        )}
-
-        {exercise.type === 'fill_blank' && (
-          <div>
-            <div className="font-mono anim-pop" style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 16, padding: '14px', fontSize: 16, marginBottom: 18, textAlign: 'center', fontWeight: 600 }}>
-              {exercise.template.split('___')[0]}
-              <span style={{ display: 'inline-block', minWidth: 60, borderBottom: `3px solid ${selected ? C.primary : C.border}`, color: C.primary, fontWeight: 800 }}>{selected || '\u00A0'}</span>
-              {exercise.template.split('___')[1]}
+        function LeaderboardScreen({ user, leaderboard }) {
+          return (
+            <div style={{ maxWidth: 460, margin: '0 auto', padding: '16px' }} className="anim-pop">
+              <div className="flex flex-col items-center text-center gap-2 mb-6 mt-2">
+                <div style={{ width: 60, height: 60, borderRadius: '50%', background: C.goldSoft }} className="flex items-center justify-center">
+                  <Trophy size={32} color={C.gold} fill={C.gold} />
+                </div>
+                <h2 className="font-display text-xl font-extrabold" style={{ color: C.ink }}>Bảng Xếp Hạng Tuần</h2>
+                <p style={{ color: C.inkSoft, fontSize: 13 }}>Thi đua kiếm XP với các học viên khác</p>
+              </div>
+              <div style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 20, overflow: 'hidden' }}>
+                {leaderboard.map((player, index) => {
+                  const isTop3 = index < 3;
+                  const medals = ['🥇', '🥈', '🥉'];
+                  return (
+                    <div key={index} className="flex items-center justify-between px-4 py-3.5 border-b last:border-0" style={{ background: player.isCurrentUser ? C.primarySoft : 'transparent', borderColor: C.border }}>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono font-bold text-center w-6" style={{ fontSize: isTop3 ? 18 : 14, color: isTop3 ? C.gold : C.inkSoft }}>
+                          {isTop3 ? medals[index] : index + 1}
+                        </span>
+                        <span style={{ fontSize: 22 }}>{player.avatar}</span>
+                        <span className="font-display font-bold text-sm" style={{ color: player.isCurrentUser ? C.primaryDark : C.ink }}>
+                          {player.name} {player.isCurrentUser && '(Bạn)'}
+                        </span>
+                      </div>
+                      <div className="font-mono font-bold text-sm" style={{ color: C.primary }}>{player.xp} XP</div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex flex-col gap-3">
-              {optionsPool.map((opt) => (
-                <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
-              ))}
+          );
+        }
+
+        function LessonScreen({ unit, exercise, exIndex, hearts, selected, setSelected, chosen, setChosen, pool, setPool, optionsPool, feedback, canCheck, onCheck, onContinue, onExit }) {
+          const total = unit.exercises.length;
+          const progress = ((exIndex + (feedback ? 1 : 0)) / total) * 100;
+          function pickWord(word, idx) {
+            if (feedback) return;
+            setPool((p) => p.filter((_, i) => i !== idx));
+            setChosen((c) => [...c, word]);
+          }
+          function unpickWord(idx) {
+            if (feedback) return;
+            const word = chosen[idx];
+            setChosen((c) => c.filter((_, i) => i !== idx));
+            setPool((p) => [...p, word]);
+          }
+          return (
+            <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh' }} className="flex flex-col">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <button onClick={onExit} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={24} color={C.inkSoft} /></button>
+                <div style={{ flex: 1, height: 10, background: C.border, borderRadius: 999, overflow: 'hidden' }}>
+                  <div style={{ width: `${progress}%`, height: '100%', background: C.success, borderRadius: 999 }} />
+                </div>
+                <div className="flex items-center gap-1 font-mono" style={{ fontWeight: 700, color: C.coral }}><Heart size={20} color={C.coral} fill={hearts > 0 ? C.coral : 'none'} />{hearts}</div>
+              </div>
+              <div className="px-5 pt-4 flex-1">
+                <h2 className="font-display text-lg font-bold mb-4" style={{ color: C.ink }}>{exercise.prompt}</h2>
+                {exercise.type === 'mc' && (
+                  <div className="flex flex-col gap-3">
+                    {optionsPool.map((opt) => (
+                      <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
+                    ))}
+                  </div>
+                )}
+                {exercise.type === 'fill_blank' && (
+                  <div>
+                    <div className="font-mono anim-pop" style={{ background: C.surface, border: `2px solid ${C.border}`, borderRadius: 16, padding: '14px', fontSize: 16, marginBottom: 18, textAlign: 'center', fontWeight: 600 }}>
+                      {exercise.template.split('___')[0]}
+                      <span style={{ display: 'inline-block', minWidth: 60, borderBottom: `3px solid ${selected ? C.primary : C.border}`, color: C.primary, fontWeight: 800 }}>{selected || '\u00A0'}</span>
+                      {exercise.template.split('___')[1]}
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {optionsPool.map((opt) => (
+                        <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {exercise.type === 'listening' && (
+                  <div>
+                    <div className="flex justify-center mb-6">
+                      <button onClick={() => speak(exercise.audioText)} style={{ width: 74, height: 74, borderRadius: '50%', background: C.primary, border: 'none', boxShadow: `0 5px 0 ${C.primaryDark}` }} className="flex items-center justify-center cursor-pointer"><Volume2 size={32} color="#fff" /></button>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {optionsPool.map((opt) => (
+                        <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {exercise.type === 'word_order' && (
+                  <div>
+                    <div className="flex flex-wrap gap-2" style={{ minHeight: 50, borderBottom: `2px solid ${C.border}`, padding: '6px 4px', marginBottom: 20 }}>
+                      {chosen.length === 0 && <span style={{ color: C.inkSoft, fontSize: 13, padding: '6px 0' }}>Chạm vào từ để ghép câu</span>}
+                      {chosen.map((w, i) => (
+                        <button key={i} onClick={() => unpickWord(i)} className="font-display" style={{ background: C.primarySoft, border: `2px solid ${C.primary}`, color: C.primaryDark, borderRadius: 10, padding: '6px 12px', fontSize: 15, fontWeight: 600 }}>{w}</button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {pool.map((w, i) => (
+                        <button key={i} onClick={() => pickWord(w, i)} disabled={!!feedback} className="font-display" style={{ background: C.surface, border: `2px solid ${C.border}`, color: C.ink, borderRadius: 10, padding: '8px 14px', fontSize: 15, fontWeight: 600 }}>{w}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div style={{ borderTop: feedback ? 'none' : `1px solid ${C.border}`, background: feedback === 'correct' ? C.successSoft : feedback === 'wrong' ? C.errorSoft : C.surface, padding: '16px 20px', position: 'sticky', bottom: 0 }} className={feedback ? 'anim-slideup' : ''}>
+                {feedback && (
+                  <div className="flex items-center gap-2 mb-3">
+                    {feedback === 'correct' ? <Check size={20} color={C.success} /> : <X size={20} color={C.error} />}
+                    <span className="font-display font-extrabold text-sm" style={{ color: feedback === 'correct' ? C.success : C.error }}>{feedback === 'correct' ? 'Chính xác!' : 'Chưa đúng rồi'}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 12, color: C.inkSoft }}>Đáp án: {Array.isArray(exercise.answer) ? exercise.answer.join(' ') : exercise.answer}</span>
+                  </div>
+                )}
+                <button onClick={feedback ? onContinue : onCheck} disabled={!feedback && !canCheck} className="font-display w-full py-3 rounded-xl border-none text-base font-extrabold text-white" style={{ cursor: (!feedback && !canCheck) ? 'not-allowed' : 'pointer', background: !feedback && !canCheck ? '#C3BEDA' : feedback === 'wrong' ? C.error : C.success, boxShadow: (!feedback && !canCheck) ? 'none' : `0 4px 0 ${feedback === 'wrong' ? '#C43E42' : '#22935A'}` }}>
+                  {feedback ? 'TIẾP TỤC' : 'KIỂM TRA'}
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        }
 
-        {exercise.type === 'listening' && (
-          <div>
-            <div className="flex justify-center mb-6">
-              <button onClick={() => speak(exercise.audioText)} style={{ width: 74, height: 74, borderRadius: '50%', background: C.primary, border: 'none', boxShadow: `0 5px 0 ${C.primaryDark}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><Volume2 size={32} color="#fff" /></button>
+        function OptionButton({ label, active, disabled, correct, wrong, onClick }) {
+          let border = C.border, bg = C.surface, color = C.ink;
+          if (active && !correct && !wrong) { border = C.primary; bg = C.primarySoft; color = C.primaryDark; }
+          if (correct) { border = C.success; bg = C.successSoft; color = C.success; }
+          if (wrong) { border = C.error; bg = C.errorSoft; color = C.error; }
+          return (
+            <button onClick={onClick} disabled={disabled} className={`font-display text-left px-4 py-3 rounded-xl border-2 flex justify-between items-center ${wrong ? 'anim-shake' : ''}`} style={{ borderColor: border, background: bg, color, fontSize: 15, fontWeight: 600, cursor: disabled ? 'default' : 'pointer' }}>
+              {label}
+              {correct && <Check size={18} color={C.success} />}
+              {wrong && <X size={18} color={C.error} />}
+            </button>
+          );
+        }
+
+        function CompleteScreen({ unit, lessonXp, user, onContinue }) {
+          return (
+            <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh' }} className="flex flex-col items-center justify-center padding-6 text-center">
+              <div className="anim-pop mb-4 flex items-center justify-center" style={{ width: 100, height: 100, borderRadius: '50%', background: C.goldSoft }}><Trophy size={48} color={C.gold} fill={C.gold} /></div>
+              <h1 className="font-display text-2xl font-extrabold mb-1">Xuất sắc hoàn thành!</h1>
+              <p style={{ color: C.inkSoft, fontSize: 14, marginBottom: 24 }}>Bạn đã làm chủ bài "{unit.title}"</p>
+              <div className="flex gap-4 mb-8">
+                <div style={{ background: C.goldSoft, borderRadius: 16, padding: '12px', minWidth: 100 }}>
+                  <div className="font-mono font-extrabold text-base" style={{ color: C.gold }}>+{lessonXp}</div>
+                  <div style={{ fontSize: 11, color: C.inkSoft }}>XP Vừa Nhận</div>
+                </div>
+                <div style={{ background: C.primarySoft, borderRadius: 16, padding: '12px', minWidth: 100 }}>
+                  <div className="font-mono font-extrabold text-base" style={{ color: C.primaryDark }}>{user.xp}</div>
+                  <div style={{ fontSize: 11, color: C.inkSoft }}>Tổng Điểm XP</div>
+                </div>
+              </div>
+              <button onClick={onContinue} className="font-display w-full max-w-xs py-3 rounded-xl border-none text-base font-extrabold text-white" style={{ background: C.success, boxShadow: `0 4px 0 #22935A` }}>TIẾP TỤC LỘ TRÌNH</button>
             </div>
-            <div className="flex flex-col gap-3">
-              {optionsPool.map((opt) => (
-                <OptionButton key={opt} label={opt} active={selected === opt} disabled={!!feedback} correct={feedback && opt === exercise.answer} wrong={feedback === 'wrong' && selected === opt && opt !== exercise.answer} onClick={() => setSelected(opt)} />
-              ))}
+          );
+        }
+
+        function GameOverScreen({ unit, onRetry, onExit }) {
+          return (
+            <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh' }} className="flex flex-col items-center justify-center padding-6 text-center">
+              <div className="anim-pop mb-4 flex items-center justify-center" style={{ width: 100, height: 100, borderRadius: '50%', background: C.errorSoft }}><Heart size={44} color={C.error} /></div>
+              <h1 className="font-display text-2xl font-extrabold mb-1">Hết tim rồi!</h1>
+              <p style={{ color: C.inkSoft, fontSize: 14, marginBottom: 28 }}>Đừng nản chí, hãy ôn luyện lại nhé.</p>
+              <button onClick={onRetry} className="font-display w-full max-w-xs py-3 rounded-xl border-none text-base font-extrabold text-white mb-3" style={{ background: C.primary, boxShadow: `0 4px 0 ${C.primaryDark}` }}>THỬ LẠI</button>
+              <button onClick={onExit} className="font-display w-full max-w-xs py-3 rounded-xl text-base font-extrabold" style={{ border: `2px solid ${C.border}`, color: C.inkSoft, background: 'transparent' }}>VỀ TRANG CHỦ</button>
             </div>
-          </div>
-        )}
+          );
+        }
 
-        {exercise.type === 'word_order' && (
-          <div>
-            <div className="flex flex-wrap gap-2" style={{ minHeight: 50, borderBottom: `2px solid ${C.border}`, padding: '6px 4px', marginBottom: 20 }}>
-              {chosen.length === 0 && <span style={{ color: C.inkSoft, fontSize: 13, padding: '6px 0' }}>Chạm vào từ để ghép câu</span>}
-              {chosen.map((w, i) => (
-                <button key={i} onClick={() => unpickWord(i)} className="font-display" style={{ background: C.primarySoft, border: `2px solid ${C.primary}`, color: C.primaryDark, borderRadius: 10, padding: '6px 12px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{w}</button>
-              ))}
-            </div>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {pool.map((w, i) => (
-                <button key={i} onClick={() => pickWord(w, i)} disabled={!!feedback} className="font-display" style={{ background: C.surface, border: `2px solid ${C.border}`, color: C.ink, borderRadius: 10, padding: '8px 14px', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>{w}</button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div style={{ borderTop: feedback ? 'none' : `1px solid ${C.border}`, background: feedback === 'correct' ? C.successSoft : feedback === 'wrong' ? C.errorSoft : C.surface, padding: '16px 20px', position: 'sticky', bottom: 0 }} className={feedback ? 'anim-slideup' : ''}>
-        {feedback && (
-          <div className="flex items-center gap-2 mb-3">
-            {feedback === 'correct' ? <Check size={20} color={C.success} /> : <X size={20} color={C.error} />}
-            <span className="font-display font-extrabold text-sm" style={{ color: feedback === 'correct' ? C.success : C.error }}>{feedback === 'correct' ? 'Chính xác!' : 'Chưa đúng rồi'}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 12, color: C.inkSoft }}>Đáp án: {Array.isArray(exercise.answer) ? exercise.answer.join(' ') : exercise.answer}</span>
-          </div>
-        )}
-        <button onClick={feedback ? onContinue : onCheck} disabled={!feedback && !canCheck} className="font-display w-full py-3 rounded-xl border-none text-base font-extrabold text-white" style={{ cursor: (!feedback && !canCheck) ? 'not-allowed' : 'pointer', background: !feedback && !canCheck ? '#C3BEDA' : feedback === 'wrong' ? C.error : C.success, boxShadow: (!feedback && !canCheck) ? 'none' : `0 4px 0 ${feedback === 'wrong' ? '#C43E42' : '#22935A'}` }}>
-          {feedback ? 'TIẾP TỤC' : 'KIỂM TRA'}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function OptionButton({ label, active, disabled, correct, wrong, onClick }) {
-  let border = C.border, bg = C.surface, color = C.ink;
-  if (active && !correct && !wrong) { border = C.primary; bg = C.primarySoft; color = C.primaryDark; }
-  if (correct) { border = C.success; bg = C.successSoft; color = C.success; }
-  if (wrong) { border = C.error; bg = C.errorSoft; color = C.error; }
-  return (
-    <button onClick={onClick} disabled={disabled} className={`font-display text-left px-4 py-3 rounded-xl border-2 transition-all flex justify-between items-center ${wrong ? 'anim-shake' : ''}`} style={{ borderColor: border, background: bg, color, fontSize: 15, fontWeight: 600, cursor: disabled ? 'default' : 'pointer' }}>
-      {label}
-      {correct && <Check size={18} color={C.success} />}
-      {wrong && <X size={18} color={C.error} />}
-    </button>
-  );
-}
-
-// MÀN HÌNH HOÀN THÀNH BÀI HỌC
-function CompleteScreen({ unit, lessonXp, user, onContinue }) {
-  return (
-    <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
-      <div className="anim-pop mb-4" style={{ width: 100, height: 100, borderRadius: '50%', background: C.goldSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={48} color={C.gold} fill={C.gold} /></div>
-      <h1 className="font-display text-2xl font-extrabold mb-1">Xuất sắc hoàn thành!</h1>
-      <p style={{ color: C.inkSoft, fontSize: 14, marginBottom: 24 }}>Bạn đã làm chủ bài "{unit.title}"</p>
-
-      <div className="flex gap-4 mb-8">
-        <div style={{ background: C.goldSoft, borderRadius: 16, padding: '12px', minWidth: 100 }}>
-          <div className="font-mono font-extrabold text-base" style={{ color: C.gold }}>+{lessonXp}</div>
-          <div style={{ fontSize: 11, color: C.inkSoft }}>XP Vừa Nhận</div>
-        </div>
-        <div style={{ background: C.primarySoft, borderRadius: 16, padding: '12px', minWidth: 100 }}>
-          <div className="font-mono font-extrabold text-base" style={{ color: C.primaryDark }}>{user.xp}</div>
-          <div style={{ fontSize: 11, color: C.inkSoft }}>Tổng Điểm XP</div>
-        </div>
-      </div>
-
-      <button onClick={onContinue} className="font-display w-full max-w-xs py-3 rounded-xl border-none text-base font-extrabold text-white" style={{ background: C.success, boxShadow: `0 4px 0 #22935A`, cursor: 'pointer' }}>TIẾP TỤC LỘ TRÌNH</button>
-    </div>
-  );
-}
-
-// MÀN HÌNH THUA CUỘC (GAME OVER)
-function GameOverScreen({ unit, onRetry, onExit }) {
-  return (
-    <div style={{ maxWidth: 460, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center' }}>
-      <div className="anim-pop mb-4" style={{ width: 100, height: 100, borderRadius: '50%', background: C.errorSoft, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Heart size={44} color={C.error} /></div>
-      <h1 className="font-display text-2xl font-extrabold mb-1">Hết tim rồi!</h1>
-      <p style={{ color: C.inkSoft, fontSize: 14, marginBottom: 28 }}>Đừng nản chí, hãy ôn luyện lại nhé.</p>
-
-      <button onClick={onRetry} className="font-display w-full max-w-xs py-3 rounded-xl border-none text-base font-extrabold text-white mb-3" style={{ background: C.primary, boxShadow: `0 4px 0 ${C.primaryDark}`, cursor: 'pointer' }}>THỬ LẠI</button>
-      <button onClick={onExit} className="font-display w-full max-w-xs py-3 rounded-xl text-base font-extrabold" style={{ border: `2px solid ${C.border}`, color: C.inkSoft, background: 'transparent', cursor: 'pointer' }}>VỀ TRANG CHỦ</button>
-    </div>
-  );
-}
-
+        // Render ứng dụng vào DOM
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
